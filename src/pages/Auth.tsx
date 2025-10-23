@@ -5,23 +5,79 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Bus, UserCircle, Shield, UserCheck } from "lucide-react";
+import { Bus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { z } from "zod";
+
+const loginSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+const signupSchema = z.object({
+  fullName: z.string().trim().min(2, "Name must be at least 2 characters").max(100),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
 
 const Auth = () => {
-  const [role, setRole] = useState("user");
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [signupName, setSignupName] = useState("");
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
+  const [errors, setErrors] = useState<any>({});
+  
   const navigate = useNavigate();
+  const { signIn, signUp, role } = useAuth();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // For demo, redirect to dashboard based on role
-    navigate(`/dashboard/${role}`);
+    setErrors({});
+
+    try {
+      loginSchema.parse({ email: loginEmail, password: loginPassword });
+      
+      const { error } = await signIn(loginEmail, loginPassword);
+      
+      if (!error) {
+        setTimeout(() => {
+          navigate(`/dashboard/${role || 'user'}`);
+        }, 500);
+      }
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const fieldErrors: any = {};
+        error.errors.forEach((err) => {
+          if (err.path[0]) fieldErrors[err.path[0]] = err.message;
+        });
+        setErrors(fieldErrors);
+      }
+    }
   };
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate(`/dashboard/${role}`);
+    setErrors({});
+
+    try {
+      signupSchema.parse({ 
+        fullName: signupName, 
+        email: signupEmail, 
+        password: signupPassword 
+      });
+      
+      await signUp(signupEmail, signupPassword, signupName);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const fieldErrors: any = {};
+        error.errors.forEach((err) => {
+          if (err.path[0]) fieldErrors[err.path[0]] = err.message;
+        });
+        setErrors(fieldErrors);
+      }
+    }
   };
 
   return (
@@ -57,45 +113,27 @@ const Auth = () => {
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="your@email.com" required />
+                  <Input 
+                    id="email" 
+                    type="email" 
+                    placeholder="your@email.com" 
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    required 
+                  />
+                  {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
-                  <Input id="password" type="password" placeholder="••••••••" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="role">Login As</Label>
-                  <Select value={role} onValueChange={setRole}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="user">
-                        <div className="flex items-center gap-2">
-                          <UserCircle className="w-4 h-4" />
-                          Passenger
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="driver">
-                        <div className="flex items-center gap-2">
-                          <Bus className="w-4 h-4" />
-                          Driver
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="supervisor">
-                        <div className="flex items-center gap-2">
-                          <UserCheck className="w-4 h-4" />
-                          Supervisor
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="admin">
-                        <div className="flex items-center gap-2">
-                          <Shield className="w-4 h-4" />
-                          Admin
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Input 
+                    id="password" 
+                    type="password" 
+                    placeholder="••••••••" 
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    required 
+                  />
+                  {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
                 </div>
                 <Button type="submit" className="w-full bg-gradient-primary hover:opacity-90 transition-opacity">
                   Login
@@ -107,28 +145,38 @@ const Auth = () => {
               <form onSubmit={handleSignup} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="signup-name">Full Name</Label>
-                  <Input id="signup-name" placeholder="John Doe" required />
+                  <Input 
+                    id="signup-name" 
+                    placeholder="John Doe" 
+                    value={signupName}
+                    onChange={(e) => setSignupName(e.target.value)}
+                    required 
+                  />
+                  {errors.fullName && <p className="text-sm text-destructive">{errors.fullName}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-email">Email</Label>
-                  <Input id="signup-email" type="email" placeholder="your@email.com" required />
+                  <Input 
+                    id="signup-email" 
+                    type="email" 
+                    placeholder="your@email.com" 
+                    value={signupEmail}
+                    onChange={(e) => setSignupEmail(e.target.value)}
+                    required 
+                  />
+                  {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-password">Password</Label>
-                  <Input id="signup-password" type="password" placeholder="••••••••" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-role">Register As</Label>
-                  <Select value={role} onValueChange={setRole}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="user">Passenger</SelectItem>
-                      <SelectItem value="driver">Driver</SelectItem>
-                      <SelectItem value="supervisor">Supervisor</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Input 
+                    id="signup-password" 
+                    type="password" 
+                    placeholder="••••••••" 
+                    value={signupPassword}
+                    onChange={(e) => setSignupPassword(e.target.value)}
+                    required 
+                  />
+                  {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
                 </div>
                 <Button type="submit" className="w-full bg-gradient-primary hover:opacity-90 transition-opacity">
                   Sign Up

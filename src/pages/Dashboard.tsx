@@ -1,22 +1,36 @@
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate, Navigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import UserDashboard from "@/components/dashboard/UserDashboard";
 import DriverDashboard from "@/components/dashboard/DriverDashboard";
 import SupervisorDashboard from "@/components/dashboard/SupervisorDashboard";
 import AdminDashboard from "@/components/dashboard/AdminDashboard";
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 
 const Dashboard = () => {
-  const { role } = useParams();
+  const { role: urlRole } = useParams();
   const navigate = useNavigate();
+  const { user, role, signOut, loading } = useAuth();
 
-  const handleLogout = () => {
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  const handleLogout = async () => {
+    await signOut();
     navigate("/auth");
   };
 
   const renderDashboard = () => {
-    switch (role) {
+    switch (role || urlRole) {
       case "user":
         return <UserDashboard />;
       case "driver":

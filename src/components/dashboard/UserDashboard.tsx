@@ -1,36 +1,101 @@
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { Leaf, Award, MapPin, CreditCard, TrendingUp, Bus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 const UserDashboard = () => {
+  const [profile, setProfile] = useState<any>(null);
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [rewards, setRewards] = useState<any[]>([]);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+      fetchBookings();
+      fetchRewards();
+    }
+  }, [user]);
+
+  const fetchProfile = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user?.id)
+        .single();
+
+      if (error) throw error;
+      setProfile(data);
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+    }
+  };
+
+  const fetchBookings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("bookings")
+        .select("*, routes(name)")
+        .eq("user_id", user?.id)
+        .order("created_at", { ascending: false })
+        .limit(3);
+
+      if (error) throw error;
+      setBookings(data || []);
+    } catch (error) {
+      console.error("Error fetching bookings:", error);
+    }
+  };
+
+  const fetchRewards = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("rewards")
+        .select("*")
+        .eq("active", true)
+        .order("points_required", { ascending: true })
+        .limit(3);
+
+      if (error) throw error;
+      setRewards(data || []);
+    } catch (error) {
+      console.error("Error fetching rewards:", error);
+    }
+  };
+
   const stats = [
     {
       icon: Leaf,
       title: "CO₂ Saved",
-      value: "127.5 kg",
-      subtitle: "~6 trees equivalent",
+      value: `${profile?.total_co2_saved?.toFixed(2) || "0.00"} kg`,
+      subtitle: `~${Math.floor((profile?.total_co2_saved || 0) / 21)} trees equivalent`,
       color: "text-primary",
     },
     {
       icon: Award,
       title: "Reward Points",
-      value: "2,450",
-      subtitle: "450 pts to next reward",
+      value: profile?.points || 0,
+      subtitle: "Redeem for rewards",
       color: "text-secondary",
     },
     {
       icon: Bus,
       title: "Total Trips",
-      value: "89",
-      subtitle: "This month: 12",
+      value: bookings.length,
+      subtitle: "Recent bookings",
       color: "text-accent",
     },
     {
       icon: CreditCard,
       title: "Rapid Card",
-      value: "৳485.00",
-      subtitle: "Active",
+      value: `৳${profile?.card_balance?.toFixed(2) || "0.00"}`,
+      subtitle: profile?.card_id || "N/A",
       color: "text-primary",
     },
   ];
@@ -42,7 +107,7 @@ const UserDashboard = () => {
         animate={{ opacity: 1, y: 0 }}
         className="text-center py-8"
       >
-        <h1 className="text-4xl font-bold mb-2">Welcome back, Passenger!</h1>
+        <h1 className="text-4xl font-bold mb-2">Welcome back, {profile?.full_name || "Passenger"}!</h1>
         <p className="text-muted-foreground">Your sustainable journey continues</p>
       </motion.div>
 
@@ -77,15 +142,24 @@ const UserDashboard = () => {
             <div className="flex-1">
               <h2 className="text-3xl font-bold mb-3">Your Impact Matters</h2>
               <p className="text-white/90 mb-4">
-                You've prevented 127.5 kg of CO₂ emissions. That's equivalent to planting 6 trees! 
+                You've prevented {profile?.total_co2_saved?.toFixed(2) || "0.00"} kg of CO₂ emissions. 
+                That's equivalent to planting {Math.floor((profile?.total_co2_saved || 0) / 21)} trees! 
                 Keep riding with CityGo to make our city greener.
               </p>
               <div className="flex gap-3">
-                <Button variant="secondary" className="bg-white text-primary hover:bg-white/90">
-                  View Routes
+                <Button 
+                  variant="secondary" 
+                  className="bg-white text-primary hover:bg-white/90"
+                  onClick={() => navigate("/routes")}
+                >
+                  Browse Routes
                 </Button>
-                <Button variant="outline" className="border-white text-white hover:bg-white/10">
-                  Book Now
+                <Button 
+                  variant="outline" 
+                  className="border-white text-white hover:bg-white/10"
+                  onClick={() => navigate("/rapid-card")}
+                >
+                  Manage Card
                 </Button>
               </div>
             </div>
@@ -112,18 +186,26 @@ const UserDashboard = () => {
               Recent Trips
             </h3>
             <div className="space-y-4">
-              {[1, 2, 3].map((trip) => (
-                <div key={trip} className="flex justify-between items-center p-4 bg-muted/30 rounded-lg">
-                  <div>
-                    <p className="font-medium">Mirpur → Motijheel</p>
-                    <p className="text-sm text-muted-foreground">Route 12A • Yesterday</p>
+              {bookings.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  No bookings yet. Start your journey!
+                </p>
+              ) : (
+                bookings.map((booking) => (
+                  <div key={booking.id} className="flex justify-between items-center p-4 bg-muted/30 rounded-lg">
+                    <div>
+                      <p className="font-medium">{(booking.routes as any)?.name || "Route"}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Seat {booking.seat_no} • {new Date(booking.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-primary">৳{booking.fare}</p>
+                      <p className="text-xs text-muted-foreground">{booking.co2_saved?.toFixed(2)} kg CO₂ saved</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold text-primary">৳45.00</p>
-                    <p className="text-xs text-muted-foreground">2.3 kg CO₂ saved</p>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </Card>
         </motion.div>
@@ -139,29 +221,31 @@ const UserDashboard = () => {
               Available Rewards
             </h3>
             <div className="space-y-4">
-              {[
-                { name: "Free Coffee", points: 500, available: true },
-                { name: "20% Off Next Ride", points: 1000, available: true },
-                { name: "Monthly Pass", points: 3000, available: false },
-              ].map((reward) => (
-                <div
-                  key={reward.name}
-                  className="flex justify-between items-center p-4 bg-muted/30 rounded-lg"
-                >
-                  <div>
-                    <p className="font-medium">{reward.name}</p>
-                    <p className="text-sm text-muted-foreground">{reward.points} points</p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant={reward.available ? "default" : "outline"}
-                    disabled={!reward.available}
-                    className={reward.available ? "bg-gradient-primary" : ""}
+              {rewards.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  No rewards available
+                </p>
+              ) : (
+                rewards.map((reward) => (
+                  <div
+                    key={reward.id}
+                    className="flex justify-between items-center p-4 bg-muted/30 rounded-lg"
                   >
-                    {reward.available ? "Redeem" : "Locked"}
-                  </Button>
-                </div>
-              ))}
+                    <div>
+                      <p className="font-medium">{reward.name}</p>
+                      <p className="text-sm text-muted-foreground">{reward.points_required} points</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={(profile?.points || 0) >= reward.points_required ? "default" : "outline"}
+                      disabled={(profile?.points || 0) < reward.points_required}
+                      className={(profile?.points || 0) >= reward.points_required ? "bg-gradient-primary" : ""}
+                    >
+                      {(profile?.points || 0) >= reward.points_required ? "Redeem" : "Locked"}
+                    </Button>
+                  </div>
+                ))
+              )}
             </div>
           </Card>
         </motion.div>
