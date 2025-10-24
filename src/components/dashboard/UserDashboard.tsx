@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import LiveBusMap from "./LiveBusMap";
+import { LiveBusMap } from "./LiveBusMap";
 
 const UserDashboard = () => {
   const [profile, setProfile] = useState<any>(null);

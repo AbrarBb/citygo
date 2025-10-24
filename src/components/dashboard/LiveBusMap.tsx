@@ -3,7 +3,7 @@ import MapView from "@/components/map/MapView";
 import { useLiveBuses } from "@/hooks/useLiveBuses";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const LiveBusMap = () => {
+export const LiveBusMap = () => {
   const { buses, loading } = useLiveBuses();
 
   if (loading) {
