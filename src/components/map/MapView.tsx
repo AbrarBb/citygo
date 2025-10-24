@@ -1,9 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 
 interface MapViewProps {
   center?: [number, number];
@@ -14,25 +11,23 @@ interface MapViewProps {
     current_location: { lat: number; lng: number };
     route_name?: string;
   }>;
-  showTokenInput?: boolean;
 }
+
+const MAPBOX_TOKEN = "pk.eyJ1IjoiYWJyYXIzMzciLCJhIjoiY21oNHQ2dXpxMDBobjJscjMxNXR2NW1kZiJ9.3XPwCpPqN0ew-0fHTRrv7w";
 
 const MapView = ({ 
   center = [90.4125, 23.8103], // Dhaka, Bangladesh
   zoom = 12, 
-  buses = [],
-  showTokenInput = false 
+  buses = []
 }: MapViewProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markers = useRef<{ [key: string]: mapboxgl.Marker }>({});
-  const [mapboxToken, setMapboxToken] = useState("");
-  const [tokenSet, setTokenSet] = useState(false);
 
   useEffect(() => {
-    if (!mapContainer.current || !tokenSet) return;
+    if (!mapContainer.current) return;
 
-    mapboxgl.accessToken = mapboxToken;
+    mapboxgl.accessToken = MAPBOX_TOKEN;
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
@@ -46,10 +41,10 @@ const MapView = ({
     return () => {
       map.current?.remove();
     };
-  }, [tokenSet, mapboxToken]);
+  }, [center, zoom]);
 
   useEffect(() => {
-    if (!map.current || !tokenSet) return;
+    if (!map.current) return;
 
     // Remove old markers
     Object.keys(markers.current).forEach((id) => {
@@ -99,37 +94,7 @@ const MapView = ({
         }
       }
     });
-  }, [buses, tokenSet]);
-
-  if (showTokenInput && !tokenSet) {
-    return (
-      <Card className="p-6 space-y-4">
-        <div>
-          <h3 className="text-lg font-semibold mb-2">Mapbox Token Required</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            Enter your Mapbox public token to enable live GPS tracking. Get one free at{" "}
-            <a
-              href="https://mapbox.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary hover:underline"
-            >
-              mapbox.com
-            </a>
-          </p>
-        </div>
-        <Input
-          type="text"
-          placeholder="pk.eyJ1Ijoi..."
-          value={mapboxToken}
-          onChange={(e) => setMapboxToken(e.target.value)}
-        />
-        <Button onClick={() => setTokenSet(true)} disabled={!mapboxToken}>
-          Enable Map
-        </Button>
-      </Card>
-    );
-  }
+  }, [buses]);
 
   return <div ref={mapContainer} className="w-full h-full rounded-lg" />;
 };

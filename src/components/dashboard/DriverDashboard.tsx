@@ -116,7 +116,6 @@ const DriverDashboard = () => {
                   },
                   route_name: busInfo.routes?.name,
                 }] : []}
-                showTokenInput={true}
               />
             </div>
           </Card>
