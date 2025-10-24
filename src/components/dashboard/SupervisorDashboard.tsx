@@ -1,15 +1,29 @@
 import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Nfc, Users, CreditCard, CheckCircle } from "lucide-react";
-import { useState } from "react";
+import { Users, CreditCard, CheckCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import NFCScanner from "./NFCScanner";
 
 const SupervisorDashboard = () => {
-  const [scanning, setScanning] = useState(false);
+  const [busInfo, setBusInfo] = useState<any>(null);
+  const { user } = useAuth();
 
-  const handleScan = () => {
-    setScanning(true);
-    setTimeout(() => setScanning(false), 2000);
+  useEffect(() => {
+    fetchBusInfo();
+  }, [user]);
+
+  const fetchBusInfo = async () => {
+    if (!user) return;
+    
+    const { data } = await supabase
+      .from("buses")
+      .select("*, routes(name)")
+      .eq("supervisor_id", user.id)
+      .single();
+    
+    if (data) setBusInfo(data);
   };
 
   return (
@@ -20,42 +34,23 @@ const SupervisorDashboard = () => {
         className="text-center py-8"
       >
         <h1 className="text-4xl font-bold mb-2">Supervisor Dashboard</h1>
-        <p className="text-muted-foreground">Bus #BA-1234 • Route 12A</p>
+        <p className="text-muted-foreground">
+          {busInfo ? `Bus #${busInfo.bus_number} • ${busInfo.routes?.name || "No Route"}` : "Loading..."}
+        </p>
       </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.1 }}
-      >
-        <Card className="p-8 text-center bg-gradient-primary text-white">
-          <motion.div
-            animate={scanning ? { scale: [1, 1.2, 1] } : {}}
-            transition={{ duration: 0.5 }}
-          >
-            <Nfc className="w-24 h-24 mx-auto mb-4" />
-          </motion.div>
-          <h2 className="text-2xl font-bold mb-4">Scan Rapid Card</h2>
-          <Button
-            size="lg"
-            onClick={handleScan}
-            disabled={scanning}
-            className="bg-white text-primary hover:bg-white/90 gap-2 px-8"
-          >
-            {scanning ? (
-              <>
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary" />
-                Scanning...
-              </>
-            ) : (
-              <>
-                <Nfc className="w-5 h-5" />
-                Tap to Scan
-              </>
-            )}
-          </Button>
-        </Card>
-      </motion.div>
+      {busInfo && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.1 }}
+        >
+          <NFCScanner 
+            busId={busInfo.id} 
+            currentLocation={busInfo.current_location}
+          />
+        </motion.div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[

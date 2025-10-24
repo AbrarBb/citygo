@@ -2,10 +2,43 @@ import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Bus, MapPin, Users, PlayCircle, StopCircle } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useGPSTracking } from "@/hooks/useGPSTracking";
+import MapView from "@/components/map/MapView";
 
 const DriverDashboard = () => {
   const [routeActive, setRouteActive] = useState(false);
+  const [busInfo, setBusInfo] = useState<any>(null);
+  const { user } = useAuth();
+  const { location, isTracking, startTracking, stopTracking } = useGPSTracking(busInfo?.id);
+
+  useEffect(() => {
+    fetchBusInfo();
+  }, [user]);
+
+  const fetchBusInfo = async () => {
+    if (!user) return;
+    
+    const { data } = await supabase
+      .from("buses")
+      .select("*, routes(name)")
+      .eq("driver_id", user.id)
+      .single();
+    
+    if (data) setBusInfo(data);
+  };
+
+  const handleRouteToggle = () => {
+    if (!routeActive) {
+      startTracking();
+      setRouteActive(true);
+    } else {
+      stopTracking();
+      setRouteActive(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -15,7 +48,9 @@ const DriverDashboard = () => {
         className="text-center py-8"
       >
         <h1 className="text-4xl font-bold mb-2">Driver Dashboard</h1>
-        <p className="text-muted-foreground">Bus #BA-1234 • Route 12A</p>
+        <p className="text-muted-foreground">
+          {busInfo ? `Bus #${busInfo.bus_number} • ${busInfo.routes?.name || "No Route"}` : "Loading..."}
+        </p>
       </motion.div>
 
       <motion.div
@@ -28,7 +63,8 @@ const DriverDashboard = () => {
           <h2 className="text-2xl font-bold mb-4">Route Status</h2>
           <Button
             size="lg"
-            onClick={() => setRouteActive(!routeActive)}
+            onClick={handleRouteToggle}
+            disabled={!busInfo}
             className={`${
               routeActive
                 ? "bg-destructive hover:bg-destructive/90"
@@ -47,11 +83,45 @@ const DriverDashboard = () => {
               </>
             )}
           </Button>
-          {routeActive && (
-            <p className="mt-4 text-white/80">Route active • GPS tracking enabled</p>
+          {routeActive && location && (
+            <div className="mt-4 text-white/80 space-y-1">
+              <p>Route active • GPS tracking enabled</p>
+              <p className="text-sm">
+                Location: {location.coords.latitude.toFixed(6)}, {location.coords.longitude.toFixed(6)}
+              </p>
+              <p className="text-sm">Accuracy: ±{Math.round(location.coords.accuracy)}m</p>
+            </div>
           )}
         </Card>
       </motion.div>
+
+      {routeActive && location && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.2 }}
+        >
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-4">Live Location</h3>
+            <div className="h-[400px]">
+              <MapView
+                center={[location.coords.longitude, location.coords.latitude]}
+                zoom={15}
+                buses={busInfo ? [{
+                  id: busInfo.id,
+                  bus_number: busInfo.bus_number,
+                  current_location: {
+                    lat: location.coords.latitude,
+                    lng: location.coords.longitude,
+                  },
+                  route_name: busInfo.routes?.name,
+                }] : []}
+                showTokenInput={true}
+              />
+            </div>
+          </Card>
+        </motion.div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import LiveBusMap from "./LiveBusMap";
 
 const UserDashboard = () => {
   const [profile, setProfile] = useState<any>(null);
@@ -131,6 +132,14 @@ const UserDashboard = () => {
           </motion.div>
         ))}
       </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+      >
+        <LiveBusMap />
+      </motion.div>
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
