@@ -12,6 +12,7 @@ import Book from "./pages/Book";
 import RapidCard from "./pages/RapidCard";
 import Rewards from "./pages/Rewards";
 import Profile from "./pages/Profile";
+import TrackBus from "./pages/TrackBus";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/rapid-card" element={<RapidCard />} />
             <Route path="/rewards" element={<Rewards />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/track/:busId" element={<TrackBus />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

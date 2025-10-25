@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Bus, Users, DollarSign, Leaf, TrendingUp } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import AdminBusMap from "@/components/admin/AdminBusMap";
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState({
@@ -178,6 +179,17 @@ const AdminDashboard = () => {
         </motion.div>
       </div>
         </>
+      )}
+
+      {!loading && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          className="mt-6"
+        >
+          <AdminBusMap />
+        </motion.div>
       )}
     </div>
   );

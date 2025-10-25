@@ -147,12 +147,23 @@ const Routes = () => {
                       </p>
                       <p className="text-xs text-muted-foreground">Estimated fare</p>
                     </div>
-                    <Button
-                      onClick={() => navigate(`/book/${route.id}`)}
-                      className="bg-gradient-primary"
-                    >
-                      Book Now
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/track/${route.id}`)}
+                        className="gap-1"
+                      >
+                        <MapPin className="w-4 h-4" />
+                        Track
+                      </Button>
+                      <Button
+                        onClick={() => navigate(`/book/${route.id}`)}
+                        className="bg-gradient-primary"
+                      >
+                        Book Now
+                      </Button>
+                    </div>
                   </div>
                 </Card>
               </motion.div>
