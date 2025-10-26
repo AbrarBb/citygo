@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Bus, MapPin, Users, PlayCircle, StopCircle, AlertTriangle } from "lucide-react";
+import { Bus, MapPin, Users, PlayCircle, StopCircle, AlertTriangle, PauseCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,12 +9,16 @@ import { useGPSTracking } from "@/hooks/useGPSTracking";
 import { useRouteProgress } from "@/hooks/useRouteProgress";
 import MapView from "@/components/map/MapView";
 import RouteProgressBar from "@/components/tracking/RouteProgressBar";
+import TripSummary from "./TripSummary";
 import { useToast } from "@/hooks/use-toast";
 
 const DriverDashboard = () => {
   const [routeActive, setRouteActive] = useState(false);
+  const [routePaused, setRoutePaused] = useState(false);
   const [busInfo, setBusInfo] = useState<any>(null);
   const [routeStops, setRouteStops] = useState<any[]>([]);
+  const [currentTrip, setCurrentTrip] = useState<any>(null);
+  const [todayStats, setTodayStats] = useState({ passengers: 0, distance: 0, trips: 0 });
   const { user } = useAuth();
   const { toast } = useToast();
   const { location, isTracking, isIdle, startTracking, stopTracking } = useGPSTracking(
@@ -30,7 +34,17 @@ const DriverDashboard = () => {
 
   useEffect(() => {
     fetchBusInfo();
+    fetchTodayStats();
   }, [user]);
+
+  useEffect(() => {
+    if (routeActive && !routePaused) {
+      const interval = setInterval(() => {
+        updateTripDistance();
+      }, 30000); // Update every 30 seconds
+      return () => clearInterval(interval);
+    }
+  }, [routeActive, routePaused, location]);
 
   useEffect(() => {
     if (routeProgress.isOffRoute && routeActive) {
@@ -65,17 +79,175 @@ const DriverDashboard = () => {
       if (data.routes?.stops && Array.isArray(data.routes.stops)) {
         setRouteStops(data.routes.stops as any[]);
       }
+      
+      // Check for active trip
+      const { data: activeTrip } = await supabase
+        .from("trips")
+        .select("*")
+        .eq("driver_id", user.id)
+        .eq("status", "active")
+        .order("start_time", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (activeTrip) {
+        setCurrentTrip(activeTrip);
+        setRouteActive(true);
+        startTracking();
+      }
     }
   };
 
-  const handleRouteToggle = () => {
-    if (!routeActive) {
+  const fetchTodayStats = async () => {
+    if (!user) return;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const { data: trips } = await supabase
+      .from("trips")
+      .select("*")
+      .eq("driver_id", user.id)
+      .gte("start_time", today.toISOString());
+
+    if (trips) {
+      const stats = trips.reduce(
+        (acc, trip) => ({
+          passengers: acc.passengers + (trip.passengers_count || 0),
+          distance: acc.distance + (Number(trip.distance_km) || 0),
+          trips: acc.trips + (trip.end_time ? 1 : 0),
+        }),
+        { passengers: 0, distance: 0, trips: 0 }
+      );
+      setTodayStats(stats);
+    }
+  };
+
+  const updateTripDistance = async () => {
+    if (!currentTrip || !location) return;
+
+    // Calculate distance from trip start
+    const startLoc = currentTrip.start_location;
+    if (startLoc) {
+      const distance = calculateDistance(
+        startLoc.lat,
+        startLoc.lng,
+        location.coords.latitude,
+        location.coords.longitude
+      );
+
+      await supabase
+        .from("trips")
+        .update({ distance_km: distance })
+        .eq("id", currentTrip.id);
+    }
+  };
+
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  const handleStartRoute = async () => {
+    if (!busInfo || !location || !user) return;
+
+    const { data: trip, error } = await supabase
+      .from("trips")
+      .insert({
+        bus_id: busInfo.id,
+        driver_id: user.id,
+        route_id: busInfo.routes?.id,
+        start_location: {
+          lat: location.coords.latitude,
+          lng: location.coords.longitude,
+        },
+        status: "active",
+      })
+      .select()
+      .single();
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to start trip",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCurrentTrip(trip);
+    setRouteActive(true);
+    setRoutePaused(false);
+    startTracking();
+
+    toast({
+      title: "Route Started",
+      description: "GPS tracking is now active",
+    });
+  };
+
+  const handlePauseRoute = async () => {
+    if (!currentTrip) return;
+
+    setRoutePaused(!routePaused);
+    
+    await supabase
+      .from("trips")
+      .update({ status: routePaused ? "active" : "paused" })
+      .eq("id", currentTrip.id);
+
+    if (routePaused) {
       startTracking();
-      setRouteActive(true);
+      toast({ title: "Route Resumed" });
     } else {
       stopTracking();
-      setRouteActive(false);
+      toast({ title: "Route Paused" });
     }
+  };
+
+  const handleEndRoute = async () => {
+    if (!currentTrip || !location) return;
+
+    const { error } = await supabase
+      .from("trips")
+      .update({
+        end_time: new Date().toISOString(),
+        end_location: {
+          lat: location.coords.latitude,
+          lng: location.coords.longitude,
+        },
+        status: "completed",
+      })
+      .eq("id", currentTrip.id);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to end trip",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    stopTracking();
+    setRouteActive(false);
+    setRoutePaused(false);
+    setCurrentTrip(null);
+    fetchTodayStats();
+
+    toast({
+      title: "Route Ended",
+      description: "Trip completed successfully",
+    });
   };
 
   return (
@@ -101,28 +273,38 @@ const DriverDashboard = () => {
           <Card className="p-8 text-center bg-gradient-hero text-white">
             <Bus className="w-20 h-20 mx-auto mb-4" />
             <h2 className="text-2xl font-bold mb-4">Route Status</h2>
-            <Button
-              size="lg"
-              onClick={handleRouteToggle}
-              disabled={!busInfo}
-              className={`${
-                routeActive
-                  ? "bg-destructive hover:bg-destructive/90"
-                  : "bg-white text-primary hover:bg-white/90"
-              } gap-2 px-8`}
-            >
-              {routeActive ? (
-                <>
-                  <StopCircle className="w-5 h-5" />
-                  End Route
-                </>
-              ) : (
-                <>
+            <div className="flex gap-3 justify-center">
+              {!routeActive ? (
+                <Button
+                  size="lg"
+                  onClick={handleStartRoute}
+                  disabled={!busInfo || !location}
+                  className="bg-white text-primary hover:bg-white/90 gap-2 px-8"
+                >
                   <PlayCircle className="w-5 h-5" />
                   Start Route
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    size="lg"
+                    onClick={handlePauseRoute}
+                    className="bg-white/20 hover:bg-white/30 gap-2 px-6"
+                  >
+                    <PauseCircle className="w-5 h-5" />
+                    {routePaused ? "Resume" : "Pause"}
+                  </Button>
+                  <Button
+                    size="lg"
+                    onClick={handleEndRoute}
+                    className="bg-destructive hover:bg-destructive/90 gap-2 px-8"
+                  >
+                    <StopCircle className="w-5 h-5" />
+                    End Route
+                  </Button>
                 </>
               )}
-            </Button>
+            </div>
             {routeActive && location && (
               <div className="mt-4 text-white/80 space-y-1">
                 <p className="flex items-center justify-center gap-2">
@@ -167,6 +349,16 @@ const DriverDashboard = () => {
         )}
       </div>
 
+      {currentTrip && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+        >
+          <TripSummary trip={currentTrip} />
+        </motion.div>
+      )}
+
       {routeActive && location && (
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
@@ -202,9 +394,9 @@ const DriverDashboard = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
-          { icon: Users, label: "Passengers Today", value: "127" },
-          { icon: MapPin, label: "Distance Covered", value: "45 km" },
-          { icon: Bus, label: "Trips Completed", value: "8" },
+          { icon: Users, label: "Passengers Today", value: todayStats.passengers },
+          { icon: MapPin, label: "Distance Covered", value: `${todayStats.distance.toFixed(1)} km` },
+          { icon: Bus, label: "Trips Completed", value: todayStats.trips },
         ].map((stat, index) => (
           <motion.div
             key={stat.label}

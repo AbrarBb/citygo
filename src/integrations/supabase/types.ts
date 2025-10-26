@@ -359,6 +359,51 @@ export type Database = {
         }
         Relationships: []
       }
+      trips: {
+        Row: {
+          bus_id: string
+          created_at: string | null
+          distance_km: number | null
+          driver_id: string
+          end_location: Json | null
+          end_time: string | null
+          id: string
+          passengers_count: number | null
+          route_id: string
+          start_location: Json | null
+          start_time: string
+          status: string
+        }
+        Insert: {
+          bus_id: string
+          created_at?: string | null
+          distance_km?: number | null
+          driver_id: string
+          end_location?: Json | null
+          end_time?: string | null
+          id?: string
+          passengers_count?: number | null
+          route_id: string
+          start_location?: Json | null
+          start_time?: string
+          status?: string
+        }
+        Update: {
+          bus_id?: string
+          created_at?: string | null
+          distance_km?: number | null
+          driver_id?: string
+          end_location?: Json | null
+          end_time?: string | null
+          id?: string
+          passengers_count?: number | null
+          route_id?: string
+          start_location?: Json | null
+          start_time?: string
+          status?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
