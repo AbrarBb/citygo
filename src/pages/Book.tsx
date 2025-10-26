@@ -155,7 +155,7 @@ const Book = () => {
         description: `Your seat ${selectedSeat} is booked for ${route.name}`,
       });
 
-      navigate("/dashboard");
+      navigate("/dashboard/user");
     } catch (error: any) {
       console.error("Booking error:", error);
       toast({
