@@ -89,18 +89,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
       
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: redirectUrl,
           data: {
             full_name: fullName,
+            role: userRole,
           }
         }
       });
 
       if (error) throw error;
+
+      // Update user role if different from default
+      if (data.user && userRole !== "user") {
+        const { error: roleError } = await supabase
+          .from("user_roles")
+          .update({ role: userRole as any })
+          .eq("user_id", data.user.id);
+        
+        if (roleError) {
+          console.error("Error updating user role:", roleError);
+        }
+      }
 
       toast({
         title: "Success!",

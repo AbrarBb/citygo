@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Bus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,6 +28,7 @@ const Auth = () => {
   const [signupName, setSignupName] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
+  const [signupRole, setSignupRole] = useState("user");
   const [errors, setErrors] = useState<any>({});
   
   const navigate = useNavigate();
@@ -43,7 +45,7 @@ const Auth = () => {
       
       if (!error) {
         setTimeout(() => {
-          navigate(`/dashboard/${role || 'user'}`);
+          navigate('/dashboard');
         }, 500);
       }
     } catch (error: any) {
@@ -68,7 +70,7 @@ const Auth = () => {
         password: signupPassword 
       });
       
-      await signUp(signupEmail, signupPassword, signupName);
+      await signUp(signupEmail, signupPassword, signupName, signupRole);
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         const fieldErrors: any = {};
@@ -177,6 +179,20 @@ const Auth = () => {
                     required 
                   />
                   {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-role">Role</Label>
+                  <Select value={signupRole} onValueChange={setSignupRole}>
+                    <SelectTrigger id="signup-role">
+                      <SelectValue placeholder="Select your role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">User</SelectItem>
+                      <SelectItem value="driver">Driver</SelectItem>
+                      <SelectItem value="supervisor">Supervisor</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <Button type="submit" className="w-full bg-gradient-primary hover:opacity-90 transition-opacity">
                   Sign Up
