@@ -14,6 +14,7 @@ import Rewards from "./pages/Rewards";
 import Profile from "./pages/Profile";
 import TrackBus from "./pages/TrackBus";
 import NotFound from "./pages/NotFound";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -27,7 +28,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/routes" element={<RoutesPage />} />
             <Route path="/book/:routeId" element={<Book />} />
             <Route path="/rapid-card" element={<RapidCard />} />
