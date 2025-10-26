@@ -62,7 +62,7 @@ const Routes = () => {
           <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
             CityGo Routes
           </h1>
-          <Button onClick={() => navigate("/dashboard/user")} variant="outline">
+          <Button onClick={() => navigate("/dashboard")} variant="outline">
             Back to Dashboard
           </Button>
         </div>
