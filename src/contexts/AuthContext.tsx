@@ -103,8 +103,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) throw error;
 
-      // Update user role if different from default
-      if (data.user && userRole !== "user") {
+      // Update user role after signup (the trigger creates default "user" role)
+      if (data.user) {
+        // Wait a bit for the trigger to complete
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
         const { error: roleError } = await supabase
           .from("user_roles")
           .update({ role: userRole as any })
