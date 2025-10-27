@@ -19,6 +19,7 @@ interface MapViewProps {
 }
 
 const STORAGE_KEY = "google_maps_api_key";
+const DEFAULT_API_KEY = "AIzaSyANU6LkHDgyHNjIIYfQV3YsnQ9Do_5uMGE"; // Google Maps API Key
 
 const MapView = ({ 
   center = [23.8103, 90.4125], // Dhaka, Bangladesh [lat, lng]
@@ -31,7 +32,12 @@ const MapView = ({
   const markers = useRef<{ [key: string]: any }>({});
   const polylines = useRef<any[]>([]);
   const [apiKey, setApiKey] = useState<string>(() => {
-    return localStorage.getItem(STORAGE_KEY) || "";
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) {
+      localStorage.setItem(STORAGE_KEY, DEFAULT_API_KEY);
+      return DEFAULT_API_KEY;
+    }
+    return stored;
   });
   const [tempKey, setTempKey] = useState("");
   const [isMapLoaded, setIsMapLoaded] = useState(false);

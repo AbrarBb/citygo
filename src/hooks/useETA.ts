@@ -6,7 +6,7 @@ interface ETAResult {
   duration: number;
 }
 
-const GOOGLE_MAPS_API_KEY = localStorage.getItem("google_maps_api_key") || "";
+const GOOGLE_MAPS_API_KEY = localStorage.getItem("google_maps_api_key") || "AIzaSyANU6LkHDgyHNjIIYfQV3YsnQ9Do_5uMGE";
 
 export const useETA = (
   busLocation: { lat: number; lng: number } | null,
