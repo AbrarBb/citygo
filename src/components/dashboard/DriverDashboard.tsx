@@ -68,13 +68,31 @@ const DriverDashboard = () => {
   const fetchBusInfo = async () => {
     if (!user) return;
 
-    const { data } = await supabase
-      .from("buses")
-      .select("*, routes(id, name, stops)")
-      .eq("driver_id", user.id)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from("buses")
+        .select("*, routes(id, name, stops, distance)")
+        .eq("driver_id", user.id)
+        .maybeSingle();
 
-    if (data) {
+      if (error) {
+        console.error("Error fetching bus info:", error);
+        toast({
+          title: "Error",
+          description: "Could not load bus information. Please contact admin.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!data) {
+        toast({
+          title: "No Bus Assigned",
+          description: "You don't have a bus assigned yet. Please contact admin.",
+        });
+        return;
+      }
+
       setBusInfo(data);
       if (data.routes?.stops && Array.isArray(data.routes.stops)) {
         setRouteStops(data.routes.stops as any[]);
@@ -95,6 +113,8 @@ const DriverDashboard = () => {
         setRouteActive(true);
         startTracking();
       }
+    } catch (err) {
+      console.error("Unexpected error:", err);
     }
   };
 
@@ -305,6 +325,28 @@ const DriverDashboard = () => {
                 </>
               )}
             </div>
+            {!routeActive && busInfo && (
+              <div className="mt-6 p-4 bg-white/10 rounded-lg">
+                <p className="text-sm text-white/90 mb-2">
+                  <strong>Ready to start:</strong>
+                </p>
+                <p className="text-sm text-white/80">
+                  Route: {busInfo.routes?.name || "Not assigned"}
+                </p>
+                <p className="text-sm text-white/80">
+                  Bus: {busInfo.bus_number}
+                </p>
+                <p className="text-sm text-white/80">
+                  Distance: {busInfo.routes?.distance || 0} km
+                </p>
+                {!location && (
+                  <p className="text-sm text-yellow-300 mt-2 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" />
+                    Waiting for GPS signal...
+                  </p>
+                )}
+              </div>
+            )}
             {routeActive && location && (
               <div className="mt-4 text-white/80 space-y-1">
                 <p className="flex items-center justify-center gap-2">
@@ -312,6 +354,11 @@ const DriverDashboard = () => {
                     <>
                       <AlertTriangle className="w-4 h-4" />
                       Bus Idle
+                    </>
+                  ) : routePaused ? (
+                    <>
+                      <PauseCircle className="w-4 h-4" />
+                      Route Paused
                     </>
                   ) : (
                     "Route active • GPS tracking"
@@ -366,11 +413,14 @@ const DriverDashboard = () => {
           transition={{ delay: 0.3 }}
         >
           <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Live Location</h3>
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-primary" />
+              Live Location & Route
+            </h3>
             <div className="h-[500px]">
               <MapView
-                center={[location.coords.longitude, location.coords.latitude]}
-                zoom={16}
+                center={[location.coords.latitude, location.coords.longitude]}
+                zoom={14}
                 buses={
                   busInfo
                     ? [
@@ -384,6 +434,11 @@ const DriverDashboard = () => {
                           route_name: busInfo.routes?.name,
                         },
                       ]
+                    : []
+                }
+                routes={
+                  busInfo?.routes?.id && routeStops.length > 0
+                    ? [{ id: busInfo.routes.id, stops: routeStops }]
                     : []
                 }
               />
