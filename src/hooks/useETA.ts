@@ -6,10 +6,12 @@ interface ETAResult {
   duration: number;
 }
 
+const GOOGLE_MAPS_API_KEY = localStorage.getItem("google_maps_api_key") || "";
+
 export const useETA = (
   busLocation: { lat: number; lng: number } | null,
   userLocation: { lat: number; lng: number } | null,
-  averageSpeed: number = 30 // km/h
+  useGoogleApi: boolean = true
 ): ETAResult => {
   const [eta, setEta] = useState<string>("Calculating...");
   const [distance, setDistance] = useState<number>(0);
@@ -21,30 +23,74 @@ export const useETA = (
       return;
     }
 
-    const dist = calculateDistance(
-      busLocation.lat,
-      busLocation.lng,
-      userLocation.lat,
-      userLocation.lng
-    );
+    const google = (window as any).google;
 
-    setDistance(dist);
+    if (useGoogleApi && GOOGLE_MAPS_API_KEY && google?.maps) {
+      // Use Google Maps Distance Matrix API
+      const service = new google.maps.DistanceMatrixService();
+      
+      service.getDistanceMatrix(
+        {
+          origins: [{ lat: busLocation.lat, lng: busLocation.lng }],
+          destinations: [{ lat: userLocation.lat, lng: userLocation.lng }],
+          travelMode: google.maps.TravelMode.DRIVING,
+          unitSystem: google.maps.UnitSystem.METRIC,
+        },
+        (response: any, status: string) => {
+          if (status === "OK" && response?.rows[0]?.elements[0]?.status === "OK") {
+            const element = response.rows[0].elements[0];
+            const distInKm = element.distance.value / 1000;
+            const durationInMin = element.duration.value / 60;
 
-    // Calculate duration in minutes based on average speed
-    const durationInMinutes = (dist / averageSpeed) * 60;
-    setDuration(durationInMinutes);
+            setDistance(distInKm);
+            setDuration(durationInMin);
 
-    // Format ETA
-    if (durationInMinutes < 1) {
-      setEta("Arriving now");
-    } else if (durationInMinutes < 60) {
-      setEta(`${Math.round(durationInMinutes)} min`);
+            if (durationInMin < 1) {
+              setEta("Arriving now");
+            } else if (durationInMin < 60) {
+              setEta(`${Math.round(durationInMin)} min`);
+            } else {
+              const hours = Math.floor(durationInMin / 60);
+              const minutes = Math.round(durationInMin % 60);
+              setEta(`${hours}h ${minutes}m`);
+            }
+          } else {
+            // Fallback to haversine calculation
+            calculateSimpleETA();
+          }
+        }
+      );
     } else {
-      const hours = Math.floor(durationInMinutes / 60);
-      const minutes = Math.round(durationInMinutes % 60);
-      setEta(`${hours}h ${minutes}m`);
+      // Use simple haversine calculation
+      calculateSimpleETA();
     }
-  }, [busLocation, userLocation, averageSpeed]);
+
+    function calculateSimpleETA() {
+      const dist = calculateDistance(
+        busLocation!.lat,
+        busLocation!.lng,
+        userLocation!.lat,
+        userLocation!.lng
+      );
+
+      setDistance(dist);
+
+      // Calculate duration in minutes based on average speed (30 km/h)
+      const durationInMinutes = (dist / 30) * 60;
+      setDuration(durationInMinutes);
+
+      // Format ETA
+      if (durationInMinutes < 1) {
+        setEta("Arriving now");
+      } else if (durationInMinutes < 60) {
+        setEta(`${Math.round(durationInMinutes)} min`);
+      } else {
+        const hours = Math.floor(durationInMinutes / 60);
+        const minutes = Math.round(durationInMinutes % 60);
+        setEta(`${hours}h ${minutes}m`);
+      }
+    }
+  }, [busLocation, userLocation, useGoogleApi]);
 
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
     const R = 6371; // Earth's radius in km
