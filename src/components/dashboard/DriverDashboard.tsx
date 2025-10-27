@@ -37,6 +37,17 @@ const DriverDashboard = () => {
     fetchTodayStats();
   }, [user]);
 
+  // Auto-start GPS tracking when bus is assigned
+  useEffect(() => {
+    if (busInfo?.id && !isTracking) {
+      startTracking();
+      toast({
+        title: "GPS Tracking Active",
+        description: "Your bus location is now being tracked",
+      });
+    }
+  }, [busInfo?.id]);
+
   useEffect(() => {
     if (routeActive && !routePaused) {
       const interval = setInterval(() => {
