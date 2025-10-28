@@ -44,19 +44,24 @@ const MapView = ({
 
   const loadGoogleMapsScript = (key: string) => {
     return new Promise<void>((resolve, reject) => {
+      // Check if Google Maps is already loaded
       if ((window as any).google?.maps) {
         resolve();
         return;
       }
 
+      // Check if script is already being loaded
       const existingScript = document.getElementById("google-maps-script");
       if (existingScript) {
-        existingScript.remove();
+        // Wait for existing script to load
+        existingScript.addEventListener("load", () => resolve());
+        existingScript.addEventListener("error", () => reject(new Error("Failed to load Google Maps")));
+        return;
       }
 
       const script = document.createElement("script");
       script.id = "google-maps-script";
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=geometry`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=geometry&loading=async`;
       script.async = true;
       script.defer = true;
       script.onload = () => resolve();
@@ -74,7 +79,7 @@ const MapView = ({
   };
 
   useEffect(() => {
-    if (!apiKey || !mapContainer.current) return;
+    if (!apiKey || !mapContainer.current || map.current) return;
 
     const initMap = async () => {
       try {
@@ -82,29 +87,32 @@ const MapView = ({
         
         const google = (window as any).google;
         
-        map.current = new google.maps.Map(mapContainer.current!, {
-          center: { lat: center[0], lng: center[1] },
-          zoom: zoom,
-          styles: [
-            {
-              featureType: "poi",
-              elementType: "labels",
-              stylers: [{ visibility: "off" }]
-            }
-          ],
-          mapTypeControl: true,
-          streetViewControl: false,
-          fullscreenControl: true,
-        });
+        // Only create map if it doesn't exist
+        if (!map.current) {
+          map.current = new google.maps.Map(mapContainer.current!, {
+            center: { lat: center[0], lng: center[1] },
+            zoom: zoom,
+            styles: [
+              {
+                featureType: "poi",
+                elementType: "labels",
+                stylers: [{ visibility: "off" }]
+              }
+            ],
+            mapTypeControl: true,
+            streetViewControl: false,
+            fullscreenControl: true,
+          });
 
-        setIsMapLoaded(true);
+          setIsMapLoaded(true);
+        }
       } catch (error) {
         console.error("Error loading Google Maps:", error);
       }
     };
 
     initMap();
-  }, [apiKey, center, zoom]);
+  }, [apiKey]);
 
   // Draw route polylines
   useEffect(() => {
@@ -119,23 +127,32 @@ const MapView = ({
 
     routes.forEach((route) => {
       if (route.stops && route.stops.length > 1) {
-        const path = route.stops.map(stop => ({ lat: stop.lat, lng: stop.lng }));
-        
-        const polyline = new google.maps.Polyline({
-          path: path,
-          geodesic: true,
-          strokeColor: "#3b82f6",
-          strokeOpacity: 0.8,
-          strokeWeight: 3,
-        });
+        // Filter stops to only include objects with valid lat/lng
+        const validStops = route.stops.filter(stop => 
+          typeof stop === 'object' && 
+          typeof stop.lat === 'number' && 
+          typeof stop.lng === 'number'
+        );
 
-        polyline.setMap(map.current);
-        polylines.current.push(polyline);
+        if (validStops.length > 1) {
+          const path = validStops.map(stop => ({ lat: stop.lat, lng: stop.lng }));
+          
+          const polyline = new google.maps.Polyline({
+            path: path,
+            geodesic: true,
+            strokeColor: "#3b82f6",
+            strokeOpacity: 0.8,
+            strokeWeight: 3,
+          });
+
+          polyline.setMap(map.current);
+          polylines.current.push(polyline);
+        }
       }
     });
   }, [routes, isMapLoaded]);
 
-  // Update bus markers
+  // Update bus markers with smooth transitions
   useEffect(() => {
     if (!map.current || !isMapLoaded) return;
 
@@ -159,9 +176,10 @@ const MapView = ({
         };
 
         if (markers.current[bus.id]) {
-          // Animate marker movement
+          // Smoothly update marker position without re-creating
           markers.current[bus.id].setPosition(position);
         } else {
+          // Create new marker only if it doesn't exist
           const marker = new google.maps.Marker({
             position: position,
             map: map.current,
@@ -176,7 +194,7 @@ const MapView = ({
               scaledSize: new google.maps.Size(40, 40),
               anchor: new google.maps.Point(20, 20),
             },
-            animation: google.maps.Animation.DROP,
+            optimized: true, // Enable optimized rendering
           });
 
           const infoWindow = new google.maps.InfoWindow({
