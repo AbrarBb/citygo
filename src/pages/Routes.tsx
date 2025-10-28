@@ -7,10 +7,16 @@ import { useNavigate } from "react-router-dom";
 import { MapPin, Bus, ArrowRight, Clock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
+interface RouteStop {
+  lat: number;
+  lng: number;
+  name: string;
+}
+
 interface Route {
   id: string;
   name: string;
-  stops: string[];
+  stops: RouteStop[];
   distance: number;
   base_fare: number;
   fare_per_km: number;
@@ -42,7 +48,7 @@ const Routes = () => {
       if (error) throw error;
       setRoutes((data || []).map(route => ({
         ...route,
-        stops: (route.stops as any) as string[]
+        stops: (route.stops as unknown) as RouteStop[]
       })) as Route[]);
     } catch (error) {
       console.error("Error fetching routes:", error);
@@ -114,9 +120,9 @@ const Routes = () => {
                           {route.stops.map((stop, idx) => (
                             <span
                               key={idx}
-                              className="text-xs px-2 py-1 bg-primary/10 text-primary rounded"
+                              className="text-xs px-2 py-1 bg-primary/10 text-primary rounded inline-flex items-center"
                             >
-                              {stop}
+                              {stop.name}
                               {idx < route.stops.length - 1 && (
                                 <ArrowRight className="inline w-3 h-3 ml-1" />
                               )}

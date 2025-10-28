@@ -2,9 +2,25 @@ import { Card } from "@/components/ui/card";
 import MapView from "@/components/map/MapView";
 import { useLiveBuses } from "@/hooks/useLiveBuses";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export const LiveBusMap = () => {
   const { buses, loading } = useLiveBuses();
+  const [routes, setRoutes] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchRoutes();
+  }, []);
+
+  const fetchRoutes = async () => {
+    const { data } = await supabase
+      .from("routes")
+      .select("id, stops")
+      .eq("active", true);
+    
+    if (data) setRoutes(data);
+  };
 
   if (loading) {
     return (
@@ -27,7 +43,7 @@ export const LiveBusMap = () => {
     <Card className="p-6">
       <h3 className="text-lg font-semibold mb-4">Live Bus Tracking</h3>
       <div className="h-[500px]">
-        <MapView buses={activeBuses} />
+        <MapView buses={activeBuses} routes={routes} />
       </div>
       <div className="mt-4 text-sm text-muted-foreground">
         Tracking {activeBuses.length} active {activeBuses.length === 1 ? "bus" : "buses"}

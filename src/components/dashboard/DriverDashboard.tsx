@@ -11,6 +11,7 @@ import MapView from "@/components/map/MapView";
 import RouteProgressBar from "@/components/tracking/RouteProgressBar";
 import TripSummary from "./TripSummary";
 import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const DriverDashboard = () => {
   const [routeActive, setRouteActive] = useState(false);
@@ -19,6 +20,8 @@ const DriverDashboard = () => {
   const [routeStops, setRouteStops] = useState<any[]>([]);
   const [currentTrip, setCurrentTrip] = useState<any>(null);
   const [todayStats, setTodayStats] = useState({ passengers: 0, distance: 0, trips: 0 });
+  const [availableRoutes, setAvailableRoutes] = useState<any[]>([]);
+  const [selectedRouteId, setSelectedRouteId] = useState<string>("");
   const { user } = useAuth();
   const { toast } = useToast();
   const { location, isTracking, isIdle, startTracking, stopTracking } = useGPSTracking(
@@ -35,6 +38,7 @@ const DriverDashboard = () => {
   useEffect(() => {
     fetchBusInfo();
     fetchTodayStats();
+    fetchAvailableRoutes();
   }, [user]);
 
   // Auto-start GPS tracking when bus is assigned
@@ -67,14 +71,14 @@ const DriverDashboard = () => {
     }
   }, [routeProgress.isOffRoute, routeActive]);
 
-  useEffect(() => {
-    if (isIdle && routeActive) {
-      toast({
-        title: "Idle Detected",
-        description: "Bus has been stationary for 3+ minutes",
-      });
-    }
-  }, [isIdle, routeActive]);
+  const fetchAvailableRoutes = async () => {
+    const { data } = await supabase
+      .from("routes")
+      .select("*")
+      .eq("active", true);
+    
+    if (data) setAvailableRoutes(data);
+  };
 
   const fetchBusInfo = async () => {
     if (!user) return;
@@ -107,6 +111,9 @@ const DriverDashboard = () => {
       setBusInfo(data);
       if (data.routes?.stops && Array.isArray(data.routes.stops)) {
         setRouteStops(data.routes.stops as any[]);
+      }
+      if (data.route_id) {
+        setSelectedRouteId(data.route_id);
       }
       
       // Check for active trip
@@ -186,6 +193,24 @@ const DriverDashboard = () => {
         Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
+  };
+
+  const handleRouteChange = async (routeId: string) => {
+    setSelectedRouteId(routeId);
+    
+    // Update bus with new route
+    const { error } = await supabase
+      .from("buses")
+      .update({ route_id: routeId })
+      .eq("id", busInfo?.id);
+
+    if (!error) {
+      toast({
+        title: "Route Updated",
+        description: "Bus route has been changed",
+      });
+      fetchBusInfo();
+    }
   };
 
   const handleStartRoute = async () => {
@@ -337,13 +362,24 @@ const DriverDashboard = () => {
               )}
             </div>
             {!routeActive && busInfo && (
-              <div className="mt-6 p-4 bg-white/10 rounded-lg">
-                <p className="text-sm text-white/90 mb-2">
-                  <strong>Ready to start:</strong>
-                </p>
-                <p className="text-sm text-white/80">
-                  Route: {busInfo.routes?.name || "Not assigned"}
-                </p>
+              <div className="mt-6 p-4 bg-white/10 rounded-lg space-y-3">
+                <div>
+                  <label className="text-sm text-white/90 mb-2 block">
+                    <strong>Select Route</strong>
+                  </label>
+                  <Select value={selectedRouteId} onValueChange={handleRouteChange}>
+                    <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                      <SelectValue placeholder="Choose a route" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableRoutes.map((route) => (
+                        <SelectItem key={route.id} value={route.id}>
+                          {route.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <p className="text-sm text-white/80">
                   Bus: {busInfo.bus_number}
                 </p>

@@ -190,7 +190,7 @@ const TrackBus = () => {
                   <h3 className="text-lg font-semibold mb-4">Live Map</h3>
                   <div className="h-[500px]">
                     <MapView
-                      center={[busLocation.lng, busLocation.lat]}
+                      center={[busLocation.lat, busLocation.lng]}
                       zoom={14}
                       buses={[
                         {
@@ -200,6 +200,10 @@ const TrackBus = () => {
                           route_name: route?.name,
                         },
                       ]}
+                      routes={route ? [{
+                        id: route.id,
+                        stops: route.stops
+                      }] : []}
                     />
                   </div>
                 </Card>
