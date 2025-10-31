@@ -11,15 +11,43 @@ export const LiveBusMap = () => {
 
   useEffect(() => {
     fetchRoutes();
+    
+    // Subscribe to route changes
+    const channel = supabase
+      .channel("routes-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "routes",
+        },
+        () => {
+          fetchRoutes();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchRoutes = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("routes")
-      .select("id, stops")
+      .select("id, name, stops, active")
       .eq("active", true);
     
-    if (data) setRoutes(data);
+    if (error) {
+      console.error("Error fetching routes:", error);
+      return;
+    }
+    
+    if (data) {
+      console.log("Fetched routes:", data);
+      setRoutes(data);
+    }
   };
 
   if (loading) {
@@ -39,14 +67,41 @@ export const LiveBusMap = () => {
       route_name: bus.routes?.name,
     }));
 
+  console.log("Active buses:", activeBuses);
+  console.log("Routes to display:", routes);
+
+  // Filter routes to show only those with active buses OR all active routes
+  const routesToDisplay = routes.filter(route => {
+    // Show route if it's active and has valid stops
+    return route.stops && Array.isArray(route.stops) && route.stops.length > 1;
+  });
+
+  // Calculate center based on active buses
+  const mapCenter: [number, number] = activeBuses.length > 0 && activeBuses[0].current_location
+    ? [activeBuses[0].current_location.lat, activeBuses[0].current_location.lng]
+    : [23.8103, 90.4125]; // Default to Dhaka
+
   return (
     <Card className="p-6">
       <h3 className="text-lg font-semibold mb-4">Live Bus Tracking</h3>
+      {activeBuses.length === 0 && !loading && (
+        <div className="mb-4 p-4 bg-muted/50 rounded-lg">
+          <p className="text-sm text-muted-foreground">
+            No active buses at the moment. Buses will appear here when drivers turn on their location tracking.
+          </p>
+        </div>
+      )}
       <div className="h-[500px]">
-        <MapView buses={activeBuses} routes={routes} />
+        <MapView 
+          center={mapCenter}
+          zoom={activeBuses.length > 0 ? 13 : 12}
+          buses={activeBuses} 
+          routes={routesToDisplay} 
+        />
       </div>
       <div className="mt-4 text-sm text-muted-foreground">
-        Tracking {activeBuses.length} active {activeBuses.length === 1 ? "bus" : "buses"}
+        <div>Tracking {activeBuses.length} active {activeBuses.length === 1 ? "bus" : "buses"}</div>
+        <div>Showing {routesToDisplay.length} active {routesToDisplay.length === 1 ? "route" : "routes"}</div>
       </div>
     </Card>
   );

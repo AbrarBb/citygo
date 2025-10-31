@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { MapPin, Bus, ArrowRight, Clock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { LiveBusMap } from "@/components/dashboard/LiveBusMap";
 
 interface RouteStop {
   lat: number;
@@ -84,6 +85,16 @@ const Routes = () => {
           <p className="text-muted-foreground">
             Choose your route and book your seat
           </p>
+        </motion.div>
+
+        {/* Live Bus Map Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="mb-8"
+        >
+          <LiveBusMap />
         </motion.div>
 
         {loading ? (

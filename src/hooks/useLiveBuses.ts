@@ -45,6 +45,8 @@ export const useLiveBuses = () => {
         .eq("status", "active");
 
       if (error) throw error;
+      
+      console.log("Fetched active buses:", data);
       setBuses(data || []);
     } catch (error) {
       console.error("Error fetching buses:", error);
