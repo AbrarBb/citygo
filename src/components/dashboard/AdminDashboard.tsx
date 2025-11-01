@@ -1,11 +1,14 @@
 import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
-import { Bus, Users, DollarSign, Leaf, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Bus, Users, DollarSign, Leaf, MapPin } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AdminBusMap from "@/components/admin/AdminBusMap";
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalUsers: 0,
     activeBuses: 0,
@@ -84,10 +87,16 @@ const AdminDashboard = () => {
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="text-center py-8"
+        className="flex justify-between items-center py-8"
       >
-        <h1 className="text-4xl font-bold mb-2">Admin Dashboard</h1>
-        <p className="text-muted-foreground">System Overview & Analytics</p>
+        <div>
+          <h1 className="text-4xl font-bold mb-2">Admin Dashboard</h1>
+          <p className="text-muted-foreground">System Overview & Analytics</p>
+        </div>
+        <Button onClick={() => navigate("/admin/routes")} className="gap-2">
+          <MapPin className="w-4 h-4" />
+          Manage Routes
+        </Button>
       </motion.div>
 
       {loading ? (

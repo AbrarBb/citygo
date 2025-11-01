@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import RoutesPage from "./pages/Routes";
+import AdminRoutes from "./pages/AdminRoutes";
 import Book from "./pages/Book";
 import RapidCard from "./pages/RapidCard";
 import Rewards from "./pages/Rewards";
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/routes" element={<RoutesPage />} />
+            <Route path="/admin/routes" element={<ProtectedRoute><AdminRoutes /></ProtectedRoute>} />
             <Route path="/book/:routeId" element={<Book />} />
             <Route path="/rapid-card" element={<RapidCard />} />
             <Route path="/rewards" element={<Rewards />} />
