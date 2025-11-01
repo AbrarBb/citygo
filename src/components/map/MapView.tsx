@@ -114,6 +114,17 @@ const MapView = ({
     initMap();
   }, [apiKey]);
 
+  // Recenter map when center/zoom props change
+  useEffect(() => {
+    if (!map.current || !isMapLoaded) return;
+    const google = (window as any).google;
+    if (!google?.maps) return;
+    map.current.setCenter({ lat: center[0], lng: center[1] });
+    if (typeof zoom === 'number') {
+      map.current.setZoom(zoom);
+    }
+  }, [center, zoom, isMapLoaded]);
+
   // Draw route polylines
   useEffect(() => {
     if (!map.current || !isMapLoaded) return;
@@ -127,15 +138,22 @@ const MapView = ({
 
     routes.forEach((route) => {
       if (route.stops && route.stops.length > 1) {
-        // Filter stops to only include objects with valid lat/lng
-        const validStops = route.stops.filter(stop => 
-          typeof stop === 'object' && 
-          typeof stop.lat === 'number' && 
-          typeof stop.lng === 'number'
-        );
+        // Normalize stops: accept lat/lng or latitude/longitude, strings or numbers
+        const normalized = route.stops
+          .map((stop: any) => {
+            const latRaw = stop?.lat ?? stop?.latitude;
+            const lngRaw = stop?.lng ?? stop?.longitude;
+            const lat = typeof latRaw === 'string' ? parseFloat(latRaw) : latRaw;
+            const lng = typeof lngRaw === 'string' ? parseFloat(lngRaw) : lngRaw;
+            if (Number.isFinite(lat) && Number.isFinite(lng)) {
+              return { lat, lng };
+            }
+            return null;
+          })
+          .filter((s: any) => s !== null);
 
-        if (validStops.length > 1) {
-          const path = validStops.map(stop => ({ lat: stop.lat, lng: stop.lng }));
+        if (normalized.length > 1) {
+          const path = normalized as Array<{ lat: number; lng: number }>;
           
           const polyline = new google.maps.Polyline({
             path: path,
@@ -169,12 +187,15 @@ const MapView = ({
 
     // Add or update bus markers
     buses.forEach((bus) => {
-      if (bus.current_location?.lat && bus.current_location?.lng) {
-        const position = { 
-          lat: bus.current_location.lat, 
-          lng: bus.current_location.lng 
-        };
-
+      const loc: any = bus.current_location;
+      const latRaw = loc?.lat ?? loc?.latitude;
+      const lngRaw = loc?.lng ?? loc?.longitude;
+      const hasLatLng = latRaw != null && lngRaw != null;
+      if (hasLatLng) {
+        const lat = typeof latRaw === 'string' ? parseFloat(latRaw) : latRaw;
+        const lng = typeof lngRaw === 'string' ? parseFloat(lngRaw) : lngRaw;
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+        const position = { lat, lng };
         if (markers.current[bus.id]) {
           // Smoothly update marker position without re-creating
           markers.current[bus.id].setPosition(position);

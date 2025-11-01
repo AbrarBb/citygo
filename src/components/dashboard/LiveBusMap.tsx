@@ -59,22 +59,45 @@ export const LiveBusMap = () => {
   }
 
   const activeBuses = buses
-    .filter((bus) => bus.current_location?.lat && bus.current_location?.lng)
-    .map((bus) => ({
-      id: bus.id,
-      bus_number: bus.bus_number,
-      current_location: bus.current_location!,
-      route_name: bus.routes?.name,
-    }));
+    .map((bus) => {
+      const loc: any = bus.current_location;
+      const latRaw = loc?.lat ?? loc?.latitude;
+      const lngRaw = loc?.lng ?? loc?.longitude;
+      const lat = typeof latRaw === 'string' ? parseFloat(latRaw) : latRaw;
+      const lng = typeof lngRaw === 'string' ? parseFloat(lngRaw) : lngRaw;
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+      return {
+        id: bus.id,
+        bus_number: bus.bus_number,
+        current_location: { lat, lng },
+        route_name: bus.routes?.name,
+      };
+    })
+    .filter((b) => b !== null) as any[];
 
   console.log("Active buses:", activeBuses);
   console.log("Routes to display:", routes);
 
-  // Filter routes to show only those with active buses OR all active routes
-  const routesToDisplay = routes.filter(route => {
-    // Show route if it's active and has valid stops
-    return route.stops && Array.isArray(route.stops) && route.stops.length > 1;
-  });
+  // Normalize and filter routes to show only those with valid stop coordinates
+  const routesToDisplay = routes
+    .map((route) => {
+      const stops = Array.isArray(route.stops)
+        ? route.stops
+            .map((stop: any) => {
+              const latRaw = stop?.lat ?? stop?.latitude;
+              const lngRaw = stop?.lng ?? stop?.longitude;
+              const lat = typeof latRaw === 'string' ? parseFloat(latRaw) : latRaw;
+              const lng = typeof lngRaw === 'string' ? parseFloat(lngRaw) : lngRaw;
+              if (Number.isFinite(lat) && Number.isFinite(lng)) {
+                return { lat, lng, name: stop?.name ?? '' };
+              }
+              return null;
+            })
+            .filter((s: any) => s !== null)
+        : [];
+      return { ...route, stops };
+    })
+    .filter((route) => route.stops.length > 1);
 
   // Calculate center based on active buses
   const mapCenter: [number, number] = activeBuses.length > 0 && activeBuses[0].current_location
