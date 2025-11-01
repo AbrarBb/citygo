@@ -27,6 +27,11 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
   const [editingStop, setEditingStop] = useState<number | null>(null);
   const [stopName, setStopName] = useState("");
 
+  // Sync local stops with initialStops when they change
+  useEffect(() => {
+    setStops(initialStops);
+  }, [initialStops]);
+
   useEffect(() => {
     loadGoogleMapsScript();
   }, []);
