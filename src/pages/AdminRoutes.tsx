@@ -75,7 +75,11 @@ const AdminRoutes = () => {
     setRouteName(route.name);
     setBaseFare(route.base_fare.toString());
     setFarePerKm(route.fare_per_km.toString());
-    setRouteStops(Array.isArray(route.stops) ? route.stops : []);
+    // Only set stops if they have lat/lng coordinates
+    const validStops = Array.isArray(route.stops) 
+      ? route.stops.filter((stop: any) => stop && typeof stop === 'object' && stop.lat !== undefined && stop.lng !== undefined)
+      : [];
+    setRouteStops(validStops);
   };
 
   const handleDeleteRoute = async (routeId: string) => {

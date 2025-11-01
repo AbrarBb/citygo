@@ -248,7 +248,7 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
                   <div>
                     <p className="font-medium">{stop.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {stop.lat.toFixed(6)}, {stop.lng.toFixed(6)}
+                      {stop.lat?.toFixed(6) || '0.000000'}, {stop.lng?.toFixed(6) || '0.000000'}
                     </p>
                   </div>
                 </div>
