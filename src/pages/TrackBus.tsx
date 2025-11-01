@@ -84,9 +84,20 @@ const TrackBus = () => {
         .from("buses")
         .select("*, routes(id, name, stops, distance)")
         .eq("id", busId)
-        .single();
+        .maybeSingle();
 
       if (busError) throw busError;
+      
+      if (!busData) {
+        toast({
+          title: "Bus Not Found",
+          description: "This bus does not exist or is no longer available",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+      
       setBus(busData);
       setRoute(busData.routes);
     } catch (error) {
@@ -148,6 +159,28 @@ const TrackBus = () => {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (!bus) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-4 py-8">
+          <Button variant="ghost" onClick={() => navigate("/routes")} className="gap-2 mb-8">
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </Button>
+          <Card className="p-8 text-center">
+            <h2 className="text-2xl font-bold mb-2">Bus Not Found</h2>
+            <p className="text-muted-foreground mb-6">
+              This bus does not exist or is no longer available for tracking.
+            </p>
+            <Button onClick={() => navigate("/routes")}>
+              View Available Routes
+            </Button>
+          </Card>
+        </div>
       </div>
     );
   }
