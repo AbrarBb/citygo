@@ -201,10 +201,22 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
   return (
     <div className="space-y-4">
       <Card className="p-6">
-        <h3 className="text-lg font-bold mb-4">Route Map Editor</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Click on the map to add stops. Drag markers to adjust positions. Click markers to edit names.
-        </p>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold">Route Map Editor</h3>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Navigation className="w-4 h-4" />
+            <span>{stops.length} stop{stops.length !== 1 ? 's' : ''} added</span>
+          </div>
+        </div>
+        <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 mb-4">
+          <p className="text-sm font-medium text-primary mb-1">How to use:</p>
+          <ul className="text-xs text-muted-foreground space-y-1 ml-4 list-disc">
+            <li>Click anywhere on the map to add multiple stops</li>
+            <li>Drag markers to adjust stop positions</li>
+            <li>Click on markers to edit stop names</li>
+            <li>Use delete button to remove stops</li>
+          </ul>
+        </div>
 
         <div
           ref={mapRef}
