@@ -56,7 +56,6 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
     script.onload = initializeMap;
     document.head.appendChild(script);
   };
-
   const initializeMap = () => {
     if (!mapRef.current || mapInstanceRef.current) return;
 
@@ -97,11 +96,11 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
     };
 
     const updatedStops = [...stops, newStop];
+    console.info("Map click: adding stop", newStop, "total:", updatedStops.length);
     setStops(updatedStops);
     onStopsChange(updatedStops);
     toast.success("Stop added! Click on the marker to edit name.");
   };
-
   const updateMapMarkers = () => {
     if (!mapInstanceRef.current) return;
 
