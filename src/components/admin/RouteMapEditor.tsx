@@ -50,7 +50,7 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
     }
 
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyB1WcM9u-UGXD41v3c6u0j8d6dNmqCSf0M&libraries=geometry,places&loading=async`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyB1WcM9u-UGXD41v3c6u0j8d6dNmqCSf0M&libraries=geometry,places&v=weekly`;
     script.async = true;
     script.defer = true;
     script.onload = initializeMap;
