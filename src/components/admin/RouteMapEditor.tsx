@@ -26,6 +26,18 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
   const [stops, setStops] = useState<Stop[]>(initialStops);
   const [editingStop, setEditingStop] = useState<number | null>(null);
   const [stopName, setStopName] = useState("");
+  // Google Maps API key handling (use same storage key as MapView)
+  const STORAGE_KEY = "google_maps_api_key";
+  const DEFAULT_API_KEY = "AIzaSyANU6LkHDgyHNjIIYfQV3YsnQ9Do_5uMGE";
+  const [apiKey, setApiKey] = useState<string>(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEY) || DEFAULT_API_KEY;
+    } catch {
+      return DEFAULT_API_KEY;
+    }
+  });
+  const [tempKey, setTempKey] = useState("");
+  const [mapError, setMapError] = useState<string | null>(null);
 
   // Sync local stops with initialStops when they change
   useEffect(() => {
@@ -34,7 +46,7 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
 
   useEffect(() => {
     loadGoogleMapsScript();
-  }, []);
+  }, [apiKey]);
 
   useEffect(() => {
     if (mapInstanceRef.current) {
@@ -44,16 +56,28 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
   }, [stops]);
 
   const loadGoogleMapsScript = () => {
-    if (window.google?.maps) {
+    if ((window as any).google?.maps) {
       initializeMap();
       return;
     }
 
+    // Avoid adding duplicate scripts
+    const existing = document.getElementById("google-maps-script");
+    if (existing) {
+      existing.addEventListener("load", initializeMap, { once: true } as any);
+      return;
+    }
+
+    setMapError(null);
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyB1WcM9u-UGXD41v3c6u0j8d6dNmqCSf0M&libraries=geometry,places&v=weekly`;
+    script.id = "google-maps-script";
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry,places&v=weekly`;
     script.async = true;
     script.defer = true;
     script.onload = initializeMap;
+    script.onerror = () => {
+      setMapError("Failed to load Google Maps. Please verify your API key.");
+    };
     document.head.appendChild(script);
   };
   const initializeMap = () => {
@@ -72,6 +96,7 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
     });
 
     mapInstanceRef.current = map;
+    setMapError(null);
 
     // Add click listener to add new stops
     map.addListener("click", (e: google.maps.MapMouseEvent) => {
@@ -225,11 +250,37 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
           </ul>
         </div>
 
+        {mapError && (
+          <div className="mt-4 p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
+            <p className="text-sm mb-2">Google Maps failed to load. Enter a valid API key.</p>
+            <div className="flex gap-2">
+              <Input
+                value={tempKey}
+                onChange={(e) => setTempKey(e.target.value)}
+                placeholder="Google Maps API Key"
+              />
+              <Button
+                onClick={() => {
+                  if (tempKey.trim()) {
+                    try {
+                      localStorage.setItem(STORAGE_KEY, tempKey.trim());
+                    } catch {}
+                    setApiKey(tempKey.trim());
+                    setTempKey("");
+                    setMapError(null);
+                  }
+                }}
+              >
+                Save Key
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div
           ref={mapRef}
           className="w-full h-[500px] rounded-lg border border-border overflow-hidden"
         />
-
         {editingStop !== null && (
           <div className="mt-4 p-4 bg-muted/30 rounded-lg">
             <Label htmlFor="stopName">Stop {editingStop + 1} Name</Label>
