@@ -88,17 +88,19 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
   };
 
   const handleMapClick = (lat: number, lng: number) => {
-    const newStop: Stop = {
-      lat,
-      lng,
-      name: `Stop ${stops.length + 1}`,
-      order: stops.length + 1,
-    };
-
-    const updatedStops = [...stops, newStop];
-    console.info("Map click: adding stop", newStop, "total:", updatedStops.length);
-    setStops(updatedStops);
-    onStopsChange(updatedStops);
+    // Use functional update to avoid stale closures from Google Maps event listener
+    setStops((prev) => {
+      const newStop: Stop = {
+        lat,
+        lng,
+        name: `Stop ${prev.length + 1}`,
+        order: prev.length + 1,
+      };
+      const next = [...prev, newStop];
+      console.info("Map click: adding stop", newStop, "total:", next.length);
+      onStopsChange(next);
+      return next;
+    });
     toast.success("Stop added! Click on the marker to edit name.");
   };
   const updateMapMarkers = () => {
@@ -165,19 +167,23 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
   };
 
   const handleStopMove = (index: number, lat: number, lng: number) => {
-    const updatedStops = [...stops];
-    updatedStops[index] = { ...updatedStops[index], lat, lng };
-    setStops(updatedStops);
-    onStopsChange(updatedStops);
+    setStops((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], lat, lng };
+      onStopsChange(next);
+      return next;
+    });
   };
 
   const handleStopNameUpdate = () => {
     if (editingStop === null) return;
 
-    const updatedStops = [...stops];
-    updatedStops[editingStop] = { ...updatedStops[editingStop], name: stopName };
-    setStops(updatedStops);
-    onStopsChange(updatedStops);
+    setStops((prev) => {
+      const next = [...prev];
+      next[editingStop] = { ...next[editingStop], name: stopName };
+      onStopsChange(next);
+      return next;
+    });
     setEditingStop(null);
     setStopName("");
     toast.success("Stop name updated");
@@ -189,11 +195,13 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
   };
 
   const handleDeleteStop = (index: number) => {
-    const updatedStops = stops.filter((_, i) => i !== index);
-    // Reorder stops
-    const reorderedStops = updatedStops.map((stop, i) => ({ ...stop, order: i + 1 }));
-    setStops(reorderedStops);
-    onStopsChange(reorderedStops);
+    setStops((prev) => {
+      const updatedStops = prev.filter((_, i) => i !== index);
+      // Reorder stops
+      const reorderedStops = updatedStops.map((stop, i) => ({ ...stop, order: i + 1 }));
+      onStopsChange(reorderedStops);
+      return reorderedStops;
+    });
     toast.success("Stop deleted");
   };
 
