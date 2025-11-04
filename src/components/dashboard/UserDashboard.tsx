@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { LiveBusMap } from "./LiveBusMap";
+import CO2ImpactCard from "./CO2ImpactCard";
 
 const UserDashboard = () => {
   const [profile, setProfile] = useState<any>(null);
@@ -138,13 +139,21 @@ const UserDashboard = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
       >
-        <LiveBusMap />
+        <CO2ImpactCard totalCO2Saved={profile?.total_co2_saved || 0} />
       </motion.div>
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
+      >
+        <LiveBusMap />
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
       >
         <Card className="p-8 bg-gradient-hero text-white shadow-glow">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
@@ -187,7 +196,7 @@ const UserDashboard = () => {
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.5 }}
+          transition={{ delay: 0.6 }}
         >
           <Card className="p-6">
             <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
@@ -222,7 +231,7 @@ const UserDashboard = () => {
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.6 }}
+          transition={{ delay: 0.7 }}
         >
           <Card className="p-6">
             <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
