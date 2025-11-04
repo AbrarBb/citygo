@@ -32,12 +32,11 @@ const MapView = ({
   const markers = useRef<{ [key: string]: any }>({});
   const polylines = useRef<any[]>([]);
   const [apiKey, setApiKey] = useState<string>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) {
-      localStorage.setItem(STORAGE_KEY, DEFAULT_API_KEY);
-      return DEFAULT_API_KEY;
+    try {
+      return localStorage.getItem(STORAGE_KEY) || "";
+    } catch {
+      return "";
     }
-    return stored;
   });
   const [tempKey, setTempKey] = useState("");
   const [isMapLoaded, setIsMapLoaded] = useState(false);
@@ -50,6 +49,14 @@ const MapView = ({
         return;
       }
 
+      // Handle authentication failures by prompting for a new key
+      (window as any).gm_authFailure = () => {
+        console.error("Google Maps authentication failed");
+        try { localStorage.removeItem(STORAGE_KEY); } catch {}
+        setApiKey("");
+        reject(new Error("Google Maps authentication failed"));
+      };
+
       // Check if script is already being loaded
       const existingScript = document.getElementById("google-maps-script");
       if (existingScript) {
@@ -61,7 +68,7 @@ const MapView = ({
 
       const script = document.createElement("script");
       script.id = "google-maps-script";
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=geometry&loading=async`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=geometry,places&v=weekly`;
       script.async = true;
       script.defer = true;
       script.onload = () => resolve();
@@ -108,6 +115,8 @@ const MapView = ({
         }
       } catch (error) {
         console.error("Error loading Google Maps:", error);
+        try { localStorage.removeItem(STORAGE_KEY); } catch {}
+        setApiKey("");
       }
     };
 

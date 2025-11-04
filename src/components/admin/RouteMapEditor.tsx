@@ -27,14 +27,23 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
   const [editingStop, setEditingStop] = useState<number | null>(null);
   const [stopName, setStopName] = useState("");
 
+  // Google Maps API key handling
+  const STORAGE_KEY = "google_maps_api_key";
+  const [apiKey, setApiKey] = useState<string>(() => {
+    try { return localStorage.getItem(STORAGE_KEY) || ""; } catch { return ""; }
+  });
+  const [tempKey, setTempKey] = useState("");
+  const [mapError, setMapError] = useState<string | null>(null);
+
   // Sync local stops with initialStops when they change
   useEffect(() => {
     setStops(initialStops);
   }, [initialStops]);
 
   useEffect(() => {
+    if (!apiKey) return;
     loadGoogleMapsScript();
-  }, []);
+  }, [apiKey]);
 
   useEffect(() => {
     if (mapInstanceRef.current) {
@@ -44,29 +53,44 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
   }, [stops]);
 
   const loadGoogleMapsScript = () => {
+    // Don't attempt without a key
+    if (!apiKey) {
+      setMapError("Google Maps API key required. Enter a valid key.");
+      return;
+    }
     // Check if Google Maps is already loaded
     if ((window as any).google?.maps) {
       initializeMap();
       return;
     }
 
+    // Handle authentication failures
+    (window as any).gm_authFailure = () => {
+      console.error("Google Maps authentication failed");
+      try { localStorage.removeItem(STORAGE_KEY); } catch {}
+      setMapError("Google Maps authentication failed. Enter a valid API key.");
+      setApiKey("");
+    };
+
     // Check if script is already being loaded
     const existingScript = document.getElementById("google-maps-script");
     if (existingScript) {
       existingScript.addEventListener("load", initializeMap, { once: true });
+      existingScript.addEventListener("error", () => setMapError("Failed to load Google Maps script"));
       return;
     }
 
+    setMapError(null);
     // Load the script
     const script = document.createElement("script");
     script.id = "google-maps-script";
-    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyANU6LkHDgyHNjIIYfQV3YsnQ9Do_5uMGE&libraries=geometry,places`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry,places&v=weekly`;
     script.async = true;
     script.defer = true;
     script.onload = initializeMap;
     script.onerror = () => {
       console.error("Failed to load Google Maps script");
-      toast.error("Failed to load Google Maps. Please refresh the page.");
+      setMapError("Failed to load Google Maps. Please verify your API key.");
     };
     document.head.appendChild(script);
   };
@@ -238,6 +262,33 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
             <li>Use delete button to remove stops</li>
           </ul>
         </div>
+
+        {(!apiKey || mapError) && (
+          <div className="mt-4 p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
+            <p className="text-sm mb-2">{mapError ? mapError : "Google Maps API key required. Enter a valid API key."}</p>
+            <div className="flex gap-2">
+              <Input
+                value={tempKey}
+                onChange={(e) => setTempKey(e.target.value)}
+                placeholder="Google Maps API Key"
+              />
+              <Button
+                onClick={() => {
+                  const key = tempKey.trim();
+                  if (key) {
+                    try { localStorage.setItem(STORAGE_KEY, key); } catch {}
+                    setApiKey(key);
+                    setTempKey("");
+                    setMapError(null);
+                    setTimeout(() => loadGoogleMapsScript(), 0);
+                  }
+                }}
+              >
+                Save Key
+              </Button>
+            </div>
+          </div>
+        )}
 
         <div
           ref={mapRef}
