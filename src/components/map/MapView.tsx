@@ -190,15 +190,20 @@ const MapView = ({
             title: bus.bus_number,
             icon: {
               url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="10" fill="#22c55e" stroke="#ffffff" stroke-width="2"/>
-                  <path d="M12 6v6l4 2" stroke="#ffffff" stroke-width="2" stroke-linecap="round" fill="none"/>
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="11" fill="#22c55e" stroke="#ffffff" stroke-width="2"/>
+                  <rect x="6" y="6" width="12" height="10" rx="2" fill="#ffffff"/>
+                  <rect x="7" y="7" width="4" height="3" fill="#22c55e"/>
+                  <rect x="13" y="7" width="4" height="3" fill="#22c55e"/>
+                  <circle cx="8" cy="15" r="1.5" fill="#333"/>
+                  <circle cx="16" cy="15" r="1.5" fill="#333"/>
                 </svg>
               `),
-              scaledSize: new google.maps.Size(40, 40),
-              anchor: new google.maps.Point(20, 20),
+              scaledSize: new google.maps.Size(48, 48),
+              anchor: new google.maps.Point(24, 24),
             },
             optimized: true,
+            zIndex: 1000,
           });
 
           const infoWindow = new google.maps.InfoWindow({
