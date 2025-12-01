@@ -68,8 +68,8 @@ const Index = () => {
                 </Button>
                 <Button
                   size="lg"
-                  variant="outline"
-                  className="border-white/80 bg-white/10 text-white hover:bg-white/20 hover:border-white text-lg px-8"
+                  onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-glow text-lg px-8"
                 >
                   Learn More
                 </Button>
@@ -104,7 +104,7 @@ const Index = () => {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 container mx-auto px-4">
+      <section id="features" className="py-20 container mx-auto px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
