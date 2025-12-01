@@ -106,7 +106,15 @@ export const LiveBusMap = () => {
 
   return (
     <Card className="p-6">
-      <h3 className="text-lg font-semibold mb-4">Live Bus Tracking</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold">Live Bus Tracking</h3>
+        {activeBuses.length > 0 && (
+          <div className="flex items-center gap-2 px-3 py-1 bg-green-500/10 text-green-600 rounded-full text-sm font-medium">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+            {activeBuses.length} bus{activeBuses.length !== 1 ? "es" : ""} online
+          </div>
+        )}
+      </div>
       {activeBuses.length === 0 && !loading && (
         <div className="mb-4 p-4 bg-muted/50 rounded-lg">
           <p className="text-sm text-muted-foreground">
@@ -114,17 +122,23 @@ export const LiveBusMap = () => {
           </p>
         </div>
       )}
-      <div className="h-[500px]">
+      <div className="h-[500px] rounded-lg overflow-hidden border">
         <MapView 
           center={mapCenter}
-          zoom={activeBuses.length > 0 ? 13 : 12}
+          zoom={activeBuses.length > 0 ? 14 : 12}
           buses={activeBuses} 
           routes={routesToDisplay} 
         />
       </div>
-      <div className="mt-4 text-sm text-muted-foreground">
-        <div>Tracking {activeBuses.length} active {activeBuses.length === 1 ? "bus" : "buses"}</div>
-        <div>Showing {routesToDisplay.length} active {routesToDisplay.length === 1 ? "route" : "routes"}</div>
+      <div className="mt-4 flex flex-wrap gap-4 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 bg-green-500 rounded-full" />
+          <span>{activeBuses.length} bus{activeBuses.length !== 1 ? "es" : ""} tracked</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 bg-blue-500 rounded-full" />
+          <span>{routesToDisplay.length} route{routesToDisplay.length !== 1 ? "s" : ""} shown</span>
+        </div>
       </div>
     </Card>
   );
