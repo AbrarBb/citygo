@@ -173,8 +173,7 @@ const UserDashboard = () => {
                   Browse Routes
                 </Button>
                 <Button 
-                  variant="outline" 
-                  className="border-white text-white hover:bg-white/10"
+                  className="bg-white/20 text-white border border-white/50 hover:bg-white/30"
                   onClick={() => navigate("/rapid-card")}
                 >
                   Manage Card
