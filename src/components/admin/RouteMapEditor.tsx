@@ -18,6 +18,8 @@ interface RouteMapEditorProps {
   onStopsChange: (stops: Stop[]) => void;
 }
 
+const GOOGLE_MAPS_API_KEY = "AIzaSyANU6LkHDgyHNjIIYfQV3YsnQ9Do_5uMGE";
+
 const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
@@ -26,13 +28,6 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
   const [stops, setStops] = useState<Stop[]>(initialStops);
   const [editingStop, setEditingStop] = useState<number | null>(null);
   const [stopName, setStopName] = useState("");
-
-  // Google Maps API key handling
-  const STORAGE_KEY = "google_maps_api_key";
-  const [apiKey, setApiKey] = useState<string>(() => {
-    try { return localStorage.getItem(STORAGE_KEY) || ""; } catch { return ""; }
-  });
-  const [tempKey, setTempKey] = useState("");
   const [mapError, setMapError] = useState<string | null>(null);
 
   // Sync local stops with initialStops when they change
@@ -41,9 +36,8 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
   }, [initialStops]);
 
   useEffect(() => {
-    if (!apiKey) return;
     loadGoogleMapsScript();
-  }, [apiKey]);
+  }, []);
 
   useEffect(() => {
     if (mapInstanceRef.current) {
@@ -53,11 +47,6 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
   }, [stops]);
 
   const loadGoogleMapsScript = () => {
-    // Don't attempt without a key
-    if (!apiKey) {
-      setMapError("Google Maps API key required. Enter a valid key.");
-      return;
-    }
     // Check if Google Maps is already loaded
     if ((window as any).google?.maps) {
       initializeMap();
@@ -67,9 +56,7 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
     // Handle authentication failures
     (window as any).gm_authFailure = () => {
       console.error("Google Maps authentication failed");
-      try { localStorage.removeItem(STORAGE_KEY); } catch {}
-      setMapError("Google Maps authentication failed. Enter a valid API key.");
-      setApiKey("");
+      setMapError("Google Maps authentication failed. Please try again later.");
     };
 
     // Check if script is already being loaded
@@ -81,19 +68,19 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
     }
 
     setMapError(null);
-    // Load the script
     const script = document.createElement("script");
     script.id = "google-maps-script";
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry,places&v=weekly`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry,places&v=weekly`;
     script.async = true;
     script.defer = true;
     script.onload = initializeMap;
     script.onerror = () => {
       console.error("Failed to load Google Maps script");
-      setMapError("Failed to load Google Maps. Please verify your API key.");
+      setMapError("Failed to load Google Maps. Please try again later.");
     };
     document.head.appendChild(script);
   };
+
   const initializeMap = () => {
     if (!mapRef.current || mapInstanceRef.current) return;
 
@@ -126,7 +113,6 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
   };
 
   const handleMapClick = (lat: number, lng: number) => {
-    // Use functional update to avoid stale closures from Google Maps event listener
     setStops((prev) => {
       const newStop: Stop = {
         lat,
@@ -135,12 +121,12 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
         order: prev.length + 1,
       };
       const next = [...prev, newStop];
-      console.info("Map click: adding stop", newStop, "total:", next.length);
       onStopsChange(next);
       return next;
     });
     toast.success("Stop added! Click on the marker to edit name.");
   };
+
   const updateMapMarkers = () => {
     if (!mapInstanceRef.current) return;
 
@@ -235,7 +221,6 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
   const handleDeleteStop = (index: number) => {
     setStops((prev) => {
       const updatedStops = prev.filter((_, i) => i !== index);
-      // Reorder stops
       const reorderedStops = updatedStops.map((stop, i) => ({ ...stop, order: i + 1 }));
       onStopsChange(reorderedStops);
       return reorderedStops;
@@ -263,30 +248,9 @@ const RouteMapEditor = ({ initialStops, onStopsChange }: RouteMapEditorProps) =>
           </ul>
         </div>
 
-        {(!apiKey || mapError) && (
+        {mapError && (
           <div className="mt-4 p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
-            <p className="text-sm mb-2">{mapError ? mapError : "Google Maps API key required. Enter a valid API key."}</p>
-            <div className="flex gap-2">
-              <Input
-                value={tempKey}
-                onChange={(e) => setTempKey(e.target.value)}
-                placeholder="Google Maps API Key"
-              />
-              <Button
-                onClick={() => {
-                  const key = tempKey.trim();
-                  if (key) {
-                    try { localStorage.setItem(STORAGE_KEY, key); } catch {}
-                    setApiKey(key);
-                    setTempKey("");
-                    setMapError(null);
-                    setTimeout(() => loadGoogleMapsScript(), 0);
-                  }
-                }}
-              >
-                Save Key
-              </Button>
-            </div>
+            <p className="text-sm text-destructive">{mapError}</p>
           </div>
         )}
 

@@ -1,7 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 
 interface MapViewProps {
   center?: [number, number];
@@ -18,8 +15,7 @@ interface MapViewProps {
   }>;
 }
 
-const STORAGE_KEY = "google_maps_api_key";
-const DEFAULT_API_KEY = "AIzaSyANU6LkHDgyHNjIIYfQV3YsnQ9Do_5uMGE"; // Google Maps API Key
+const GOOGLE_MAPS_API_KEY = "AIzaSyANU6LkHDgyHNjIIYfQV3YsnQ9Do_5uMGE";
 
 const MapView = ({ 
   center = [23.8103, 90.4125], // Dhaka, Bangladesh [lat, lng]
@@ -31,17 +27,10 @@ const MapView = ({
   const map = useRef<any>(null);
   const markers = useRef<{ [key: string]: any }>({});
   const polylines = useRef<any[]>([]);
-  const [apiKey, setApiKey] = useState<string>(() => {
-    try {
-      return localStorage.getItem(STORAGE_KEY) || "";
-    } catch {
-      return "";
-    }
-  });
-  const [tempKey, setTempKey] = useState("");
   const [isMapLoaded, setIsMapLoaded] = useState(false);
+  const [mapError, setMapError] = useState(false);
 
-  const loadGoogleMapsScript = (key: string) => {
+  const loadGoogleMapsScript = () => {
     return new Promise<void>((resolve, reject) => {
       // Check if Google Maps is already loaded
       if ((window as any).google?.maps) {
@@ -49,18 +38,16 @@ const MapView = ({
         return;
       }
 
-      // Handle authentication failures by prompting for a new key
+      // Handle authentication failures
       (window as any).gm_authFailure = () => {
         console.error("Google Maps authentication failed");
-        try { localStorage.removeItem(STORAGE_KEY); } catch {}
-        setApiKey("");
+        setMapError(true);
         reject(new Error("Google Maps authentication failed"));
       };
 
       // Check if script is already being loaded
       const existingScript = document.getElementById("google-maps-script");
       if (existingScript) {
-        // Wait for existing script to load
         existingScript.addEventListener("load", () => resolve());
         existingScript.addEventListener("error", () => reject(new Error("Failed to load Google Maps")));
         return;
@@ -68,7 +55,7 @@ const MapView = ({
 
       const script = document.createElement("script");
       script.id = "google-maps-script";
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=geometry,places&v=weekly`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry,places&v=weekly`;
       script.async = true;
       script.defer = true;
       script.onload = () => resolve();
@@ -77,24 +64,15 @@ const MapView = ({
     });
   };
 
-  const handleSaveApiKey = () => {
-    if (tempKey.trim()) {
-      localStorage.setItem(STORAGE_KEY, tempKey.trim());
-      setApiKey(tempKey.trim());
-      setTempKey("");
-    }
-  };
-
   useEffect(() => {
-    if (!apiKey || !mapContainer.current || map.current) return;
+    if (!mapContainer.current || map.current) return;
 
     const initMap = async () => {
       try {
-        await loadGoogleMapsScript(apiKey);
+        await loadGoogleMapsScript();
         
         const google = (window as any).google;
         
-        // Only create map if it doesn't exist
         if (!map.current) {
           map.current = new google.maps.Map(mapContainer.current!, {
             center: { lat: center[0], lng: center[1] },
@@ -115,13 +93,12 @@ const MapView = ({
         }
       } catch (error) {
         console.error("Error loading Google Maps:", error);
-        try { localStorage.removeItem(STORAGE_KEY); } catch {}
-        setApiKey("");
+        setMapError(true);
       }
     };
 
     initMap();
-  }, [apiKey]);
+  }, []);
 
   // Recenter map when center/zoom props change
   useEffect(() => {
@@ -147,7 +124,6 @@ const MapView = ({
 
     routes.forEach((route) => {
       if (route.stops && route.stops.length > 1) {
-        // Normalize stops: accept lat/lng or latitude/longitude, strings or numbers
         const normalized = route.stops
           .map((stop: any) => {
             const latRaw = stop?.lat ?? stop?.latitude;
@@ -206,10 +182,8 @@ const MapView = ({
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
         const position = { lat, lng };
         if (markers.current[bus.id]) {
-          // Smoothly update marker position without re-creating
           markers.current[bus.id].setPosition(position);
         } else {
-          // Create new marker only if it doesn't exist
           const marker = new google.maps.Marker({
             position: position,
             map: map.current,
@@ -224,7 +198,7 @@ const MapView = ({
               scaledSize: new google.maps.Size(40, 40),
               anchor: new google.maps.Point(20, 20),
             },
-            optimized: true, // Enable optimized rendering
+            optimized: true,
           });
 
           const infoWindow = new google.maps.InfoWindow({
@@ -246,39 +220,14 @@ const MapView = ({
     });
   }, [buses, isMapLoaded]);
 
-  if (!apiKey) {
+  if (mapError) {
     return (
       <div className="w-full h-full rounded-lg border bg-card p-6 flex flex-col items-center justify-center gap-4">
         <div className="text-center space-y-2">
-          <h3 className="text-lg font-semibold">Google Maps API Key Required</h3>
+          <h3 className="text-lg font-semibold text-destructive">Map Loading Error</h3>
           <p className="text-sm text-muted-foreground">
-            Enter your Google Maps API key to enable live tracking
+            Unable to load Google Maps. Please try again later.
           </p>
-          <p className="text-xs text-muted-foreground">
-            Get your API key from{" "}
-            <a 
-              href="https://console.cloud.google.com/google/maps-apis" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-primary hover:underline"
-            >
-              Google Cloud Console
-            </a>
-          </p>
-        </div>
-        <div className="w-full max-w-md space-y-2">
-          <Label htmlFor="api-key">API Key</Label>
-          <div className="flex gap-2">
-            <Input
-              id="api-key"
-              type="password"
-              placeholder="Enter your Google Maps API key"
-              value={tempKey}
-              onChange={(e) => setTempKey(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSaveApiKey()}
-            />
-            <Button onClick={handleSaveApiKey}>Save</Button>
-          </div>
         </div>
       </div>
     );
