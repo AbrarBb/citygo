@@ -41,7 +41,8 @@ export const useLiveBuses = () => {
     try {
       const { data, error } = await supabase
         .from("buses")
-        .select("id, bus_number, current_location, route_id, routes(name)");
+        .select("id, bus_number, current_location, route_id, routes(name)")
+        .eq("status", "active");
 
       if (error) throw error;
       
