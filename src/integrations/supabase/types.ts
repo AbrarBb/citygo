@@ -124,6 +124,59 @@ export type Database = {
           },
         ]
       }
+      manual_tickets: {
+        Row: {
+          bus_id: string
+          created_at: string | null
+          fare: number
+          id: string
+          issued_at: string | null
+          location: Json | null
+          offline_id: string | null
+          passenger_count: number | null
+          payment_method: string | null
+          supervisor_id: string
+          synced: boolean | null
+          ticket_type: string | null
+        }
+        Insert: {
+          bus_id: string
+          created_at?: string | null
+          fare: number
+          id?: string
+          issued_at?: string | null
+          location?: Json | null
+          offline_id?: string | null
+          passenger_count?: number | null
+          payment_method?: string | null
+          supervisor_id: string
+          synced?: boolean | null
+          ticket_type?: string | null
+        }
+        Update: {
+          bus_id?: string
+          created_at?: string | null
+          fare?: number
+          id?: string
+          issued_at?: string | null
+          location?: Json | null
+          offline_id?: string | null
+          passenger_count?: number | null
+          payment_method?: string | null
+          supervisor_id?: string
+          synced?: boolean | null
+          ticket_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_tickets_bus_id_fkey"
+            columns: ["bus_id"]
+            isOneToOne: false
+            referencedRelation: "buses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       nfc_logs: {
         Row: {
           bus_id: string
@@ -133,7 +186,9 @@ export type Database = {
           distance: number | null
           fare: number | null
           id: string
+          offline_id: string | null
           supervisor_id: string | null
+          synced: boolean | null
           tap_in_location: Json | null
           tap_in_time: string | null
           tap_out_location: Json | null
@@ -148,7 +203,9 @@ export type Database = {
           distance?: number | null
           fare?: number | null
           id?: string
+          offline_id?: string | null
           supervisor_id?: string | null
+          synced?: boolean | null
           tap_in_location?: Json | null
           tap_in_time?: string | null
           tap_out_location?: Json | null
@@ -163,7 +220,9 @@ export type Database = {
           distance?: number | null
           fare?: number | null
           id?: string
+          offline_id?: string | null
           supervisor_id?: string | null
+          synced?: boolean | null
           tap_in_location?: Json | null
           tap_in_time?: string | null
           tap_out_location?: Json | null
@@ -322,6 +381,59 @@ export type Database = {
           stops?: Json
         }
         Relationships: []
+      }
+      supervisor_reports: {
+        Row: {
+          bus_id: string
+          created_at: string | null
+          id: string
+          passenger_count: number | null
+          report_date: string
+          supervisor_id: string
+          total_co2_saved: number | null
+          total_distance_km: number | null
+          total_fare_collected: number | null
+          total_manual_tickets: number | null
+          total_tap_ins: number | null
+          total_tap_outs: number | null
+        }
+        Insert: {
+          bus_id: string
+          created_at?: string | null
+          id?: string
+          passenger_count?: number | null
+          report_date: string
+          supervisor_id: string
+          total_co2_saved?: number | null
+          total_distance_km?: number | null
+          total_fare_collected?: number | null
+          total_manual_tickets?: number | null
+          total_tap_ins?: number | null
+          total_tap_outs?: number | null
+        }
+        Update: {
+          bus_id?: string
+          created_at?: string | null
+          id?: string
+          passenger_count?: number | null
+          report_date?: string
+          supervisor_id?: string
+          total_co2_saved?: number | null
+          total_distance_km?: number | null
+          total_fare_collected?: number | null
+          total_manual_tickets?: number | null
+          total_tap_ins?: number | null
+          total_tap_outs?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supervisor_reports_bus_id_fkey"
+            columns: ["bus_id"]
+            isOneToOne: false
+            referencedRelation: "buses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       transactions: {
         Row: {
