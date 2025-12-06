@@ -1,0 +1,682 @@
+openapi: 3.0.3
+info:
+  title: CityGo Supervisor API
+  description: |
+    REST API for the CityGo Supervisor mobile application.
+    Supports NFC tap-in/tap-out, manual ticketing, offline sync, and reporting.
+  version: 1.0.0
+  contact:
+    name: CityGo Support
+    email: support@citygo.app
+
+servers:
+  - url: https://ziouzevpbnigvwcacpqw.supabase.co/functions/v1
+    description: Production / Staging Server
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from supervisor-auth endpoint
+
+  schemas:
+    Location:
+      type: object
+      properties:
+        lat:
+          type: number
+          example: 23.7749
+        lng:
+          type: number
+          example: 90.4194
+        accuracy:
+          type: number
+          example: 10
+
+    Bus:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        bus_number:
+          type: string
+          example: "DHK-BUS-102"
+        status:
+          type: string
+          enum: [idle, active, maintenance]
+        capacity:
+          type: integer
+          example: 45
+        current_location:
+          $ref: '#/components/schemas/Location'
+
+    Route:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Badda - Malibag"
+        stops:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              lat:
+                type: number
+              lng:
+                type: number
+        distance:
+          type: number
+          example: 12.5
+        base_fare:
+          type: number
+          example: 20
+        fare_per_km:
+          type: number
+          example: 1.5
+
+    NFCEvent:
+      type: object
+      required:
+        - offline_id
+        - card_id
+        - bus_id
+        - timestamp
+      properties:
+        offline_id:
+          type: string
+          format: uuid
+          description: Unique ID generated client-side for deduplication
+        card_id:
+          type: string
+          pattern: "^RC-[A-Fa-f0-9]{8}$"
+          example: "RC-d4a290fc"
+        bus_id:
+          type: string
+          format: uuid
+        location:
+          $ref: '#/components/schemas/Location'
+        timestamp:
+          type: string
+          format: date-time
+
+    ManualTicket:
+      type: object
+      required:
+        - bus_id
+        - fare
+      properties:
+        offline_id:
+          type: string
+          format: uuid
+        bus_id:
+          type: string
+          format: uuid
+        passenger_count:
+          type: integer
+          minimum: 1
+          default: 1
+        fare:
+          type: number
+          example: 50
+        payment_method:
+          type: string
+          enum: [cash, mobile]
+          default: cash
+        ticket_type:
+          type: string
+          enum: [single, return, day_pass]
+          default: single
+        location:
+          $ref: '#/components/schemas/Location'
+        timestamp:
+          type: string
+          format: date-time
+
+    SyncEvent:
+      type: object
+      required:
+        - type
+        - offline_id
+        - bus_id
+        - timestamp
+      properties:
+        type:
+          type: string
+          enum: [tap_in, tap_out, manual_ticket]
+        offline_id:
+          type: string
+          format: uuid
+        card_id:
+          type: string
+          description: Required for tap_in and tap_out
+        bus_id:
+          type: string
+          format: uuid
+        location:
+          $ref: '#/components/schemas/Location'
+        timestamp:
+          type: string
+          format: date-time
+        passenger_count:
+          type: integer
+          description: For manual_ticket only
+        fare:
+          type: number
+          description: For manual_ticket only
+        payment_method:
+          type: string
+          description: For manual_ticket only
+
+    SyncResult:
+      type: object
+      properties:
+        offline_id:
+          type: string
+        status:
+          type: string
+          enum: [success, duplicate, error]
+        message:
+          type: string
+        data:
+          type: object
+
+    ReportSummary:
+      type: object
+      properties:
+        total_tap_ins:
+          type: integer
+        total_tap_outs:
+          type: integer
+        manual_tickets:
+          type: integer
+        total_passengers:
+          type: integer
+        total_fare_collected:
+          type: number
+        total_distance_km:
+          type: number
+        total_co2_saved:
+          type: number
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+
+paths:
+  /supervisor-auth:
+    post:
+      summary: Authenticate supervisor
+      description: Login with email/password, returns JWT and assigned bus info
+      tags: [Authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "supervisor@citygo.app"
+                password:
+                  type: string
+                  format: password
+                  example: "Test123!"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  token:
+                    type: string
+                    description: JWT access token (expires in 1 hour)
+                  refresh_token:
+                    type: string
+                  expires_at:
+                    type: integer
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      email:
+                        type: string
+                      full_name:
+                        type: string
+                  role:
+                    type: string
+                    example: "supervisor"
+                  assigned_bus:
+                    $ref: '#/components/schemas/Bus'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: User is not a supervisor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /supervisor-bus:
+    get:
+      summary: Get assigned bus details
+      description: Returns the bus assigned to the authenticated supervisor with route and trip info
+      tags: [Bus]
+      responses:
+        '200':
+          description: Bus details retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  bus:
+                    $ref: '#/components/schemas/Bus'
+                  route:
+                    $ref: '#/components/schemas/Route'
+                  current_trip:
+                    type: object
+                    nullable: true
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      start_time:
+                        type: string
+                        format: date-time
+                      passengers_count:
+                        type: integer
+                      status:
+                        type: string
+                  today_stats:
+                    type: object
+                    properties:
+                      tap_ins:
+                        type: integer
+                      tap_outs:
+                        type: integer
+                      manual_tickets:
+                        type: integer
+                      total_passengers:
+                        type: integer
+                      total_fare:
+                        type: number
+        '401':
+          description: Unauthorized
+        '404':
+          description: No bus assigned
+
+  /nfc-tap-in:
+    post:
+      summary: Process NFC tap-in
+      description: Record a passenger tap-in event
+      tags: [NFC]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NFCEvent'
+      responses:
+        '201':
+          description: Tap-in recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  status:
+                    type: string
+                    enum: [created, duplicate]
+                  tap_id:
+                    type: string
+                    format: uuid
+                  user_name:
+                    type: string
+                  card_balance:
+                    type: number
+                  tap_in_time:
+                    type: string
+                    format: date-time
+                  message:
+                    type: string
+        '400':
+          description: Card already tapped in
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    example: "ALREADY_TAPPED_IN"
+                  active_tap_id:
+                    type: string
+        '402':
+          description: Insufficient balance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    example: "INSUFFICIENT_BALANCE"
+                  current_balance:
+                    type: number
+                  minimum_required:
+                    type: number
+        '404':
+          description: Card not registered
+
+  /nfc-tap-out:
+    post:
+      summary: Process NFC tap-out
+      description: Record a passenger tap-out, calculate fare and deduct from balance
+      tags: [NFC]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NFCEvent'
+      responses:
+        '200':
+          description: Tap-out processed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  status:
+                    type: string
+                  tap_id:
+                    type: string
+                    format: uuid
+                  fare:
+                    type: number
+                    example: 25.50
+                  distance_km:
+                    type: number
+                    example: 3.67
+                  co2_saved:
+                    type: number
+                    example: 0.44
+                  points_earned:
+                    type: integer
+                    example: 36
+                  new_balance:
+                    type: number
+                  journey_duration:
+                    type: string
+                    example: "30 minutes"
+                  message:
+                    type: string
+        '404':
+          description: No active journey found
+
+  /manual-ticket:
+    post:
+      summary: Issue manual ticket
+      description: Create a manual cash ticket for passengers without NFC cards
+      tags: [Ticketing]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManualTicket'
+      responses:
+        '201':
+          description: Ticket issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  status:
+                    type: string
+                  ticket_id:
+                    type: string
+                    format: uuid
+                  bus_number:
+                    type: string
+                  passenger_count:
+                    type: integer
+                  total_fare:
+                    type: number
+                  payment_method:
+                    type: string
+                  issued_at:
+                    type: string
+                    format: date-time
+                  message:
+                    type: string
+        '404':
+          description: Bus not found
+
+  /nfc-sync:
+    post:
+      summary: Batch sync offline events
+      description: |
+        Synchronize multiple offline events in a single request.
+        Maximum batch size: 100 events.
+        Duplicates are detected via offline_id and marked as "duplicate" in results.
+      tags: [Sync]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [events]
+              properties:
+                events:
+                  type: array
+                  maxItems: 100
+                  items:
+                    $ref: '#/components/schemas/SyncEvent'
+            example:
+              events:
+                - type: "tap_in"
+                  offline_id: "550e8400-e29b-41d4-a716-446655440001"
+                  card_id: "RC-d4a290fc"
+                  bus_id: "550e8400-e29b-41d4-a716-446655440000"
+                  location: { lat: 23.7749, lng: 90.4194 }
+                  timestamp: "2025-12-06T08:30:00Z"
+                - type: "tap_out"
+                  offline_id: "550e8400-e29b-41d4-a716-446655440002"
+                  card_id: "RC-d4a290fc"
+                  bus_id: "550e8400-e29b-41d4-a716-446655440000"
+                  location: { lat: 23.7649, lng: 90.4094 }
+                  timestamp: "2025-12-06T09:00:00Z"
+                - type: "manual_ticket"
+                  offline_id: "550e8400-e29b-41d4-a716-446655440003"
+                  bus_id: "550e8400-e29b-41d4-a716-446655440000"
+                  passenger_count: 2
+                  fare: 50
+                  payment_method: "cash"
+                  timestamp: "2025-12-06T09:15:00Z"
+      responses:
+        '200':
+          description: Sync completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  processed:
+                    type: integer
+                  summary:
+                    type: object
+                    properties:
+                      success:
+                        type: integer
+                      duplicate:
+                        type: integer
+                      error:
+                        type: integer
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SyncResult'
+              example:
+                success: true
+                processed: 3
+                summary:
+                  success: 2
+                  duplicate: 1
+                  error: 0
+                results:
+                  - offline_id: "550e8400-e29b-41d4-a716-446655440001"
+                    status: "success"
+                    data: { tap_id: "uuid", user_name: "Mashiur" }
+                  - offline_id: "550e8400-e29b-41d4-a716-446655440002"
+                    status: "duplicate"
+                    message: "Event already processed"
+                  - offline_id: "550e8400-e29b-41d4-a716-446655440003"
+                    status: "success"
+                    data: { ticket_id: "uuid" }
+        '400':
+          description: Batch size exceeded or invalid events
+
+  /supervisor-reports:
+    get:
+      summary: Get supervisor reports
+      description: Retrieve daily or date-range reports for the supervisor's assigned bus
+      tags: [Reports]
+      parameters:
+        - name: date
+          in: query
+          description: Single day report (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+            example: "2025-12-06"
+        - name: from
+          in: query
+          description: Start date for range report
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          description: End date for range report
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Report generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  report_date:
+                    type: string
+                  bus:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      bus_number:
+                        type: string
+                  summary:
+                    $ref: '#/components/schemas/ReportSummary'
+                  breakdown:
+                    type: object
+                    properties:
+                      nfc:
+                        type: object
+                        properties:
+                          tap_ins:
+                            type: integer
+                          tap_outs:
+                            type: integer
+                          fare:
+                            type: number
+                          distance_km:
+                            type: number
+                      manual:
+                        type: object
+                        properties:
+                          tickets:
+                            type: integer
+                          passengers:
+                            type: integer
+                          fare:
+                            type: number
+                  hourly_breakdown:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        hour:
+                          type: string
+                          example: "08:00"
+                        passengers:
+                          type: integer
+                        fare:
+                          type: number
+        '404':
+          description: No bus assigned
+
+tags:
+  - name: Authentication
+    description: Supervisor login and token management
+  - name: Bus
+    description: Bus and route information
+  - name: NFC
+    description: NFC tap-in and tap-out operations
+  - name: Ticketing
+    description: Manual ticket issuance
+  - name: Sync
+    description: Offline event synchronization
+  - name: Reports
+    description: Daily and periodic reports
