@@ -1,1 +1,22 @@
 project_id = "ziouzevpbnigvwcacpqw"
+
+[functions.supervisor-auth]
+verify_jwt = false
+
+[functions.supervisor-bus]
+verify_jwt = true
+
+[functions.nfc-tap-in]
+verify_jwt = true
+
+[functions.nfc-tap-out]
+verify_jwt = true
+
+[functions.manual-ticket]
+verify_jwt = true
+
+[functions.nfc-sync]
+verify_jwt = true
+
+[functions.supervisor-reports]
+verify_jwt = true
