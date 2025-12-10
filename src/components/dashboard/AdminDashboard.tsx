@@ -9,7 +9,8 @@ import {
   CreditCard, 
   Ticket, 
   FileText,
-  BarChart3 
+  BarChart3,
+  IdCard
 } from "lucide-react";
 import AdminBusMap from "@/components/admin/AdminBusMap";
 import AdminPassengers from "@/components/admin/AdminPassengers";
@@ -19,6 +20,7 @@ import AdminManualTickets from "@/components/admin/AdminManualTickets";
 import AdminReports from "@/components/admin/AdminReports";
 import AdminRoutesList from "@/components/admin/AdminRoutesList";
 import AdminAnalytics from "@/components/admin/AdminAnalytics";
+import AdminNFCCards from "@/components/admin/AdminNFCCards";
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -27,6 +29,7 @@ const AdminDashboard = () => {
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "analytics", label: "Analytics", icon: BarChart3 },
     { id: "passengers", label: "Passengers", icon: Users },
+    { id: "nfc-cards", label: "NFC Cards", icon: IdCard },
     { id: "buses", label: "Buses", icon: Bus },
     { id: "routes", label: "Routes", icon: MapPin },
     { id: "nfc-logs", label: "NFC Logs", icon: CreditCard },
@@ -91,6 +94,15 @@ const AdminDashboard = () => {
             animate={{ opacity: 1 }}
           >
             <AdminPassengers />
+          </motion.div>
+        </TabsContent>
+
+        <TabsContent value="nfc-cards">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            <AdminNFCCards />
           </motion.div>
         </TabsContent>
 
