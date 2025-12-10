@@ -26,3 +26,6 @@ verify_jwt = true
 
 [functions.admin-api]
 verify_jwt = true
+
+[functions.supervisor-bookings]
+verify_jwt = true
