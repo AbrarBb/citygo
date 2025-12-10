@@ -105,13 +105,29 @@ const Book = () => {
         return;
       }
 
+      // Get a bus assigned to this route
+      const { data: buses } = await supabase
+        .from("buses")
+        .select("id")
+        .eq("route_id", route.id)
+        .limit(1);
+
+      if (!buses || buses.length === 0) {
+        toast({
+          title: "No bus available",
+          description: "No bus is currently assigned to this route",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Create booking
       const { data: booking, error: bookingError } = await supabase
         .from("bookings")
         .insert({
           user_id: user.id,
           route_id: route.id,
-          bus_id: null as any,
+          bus_id: buses[0].id,
           seat_no: selectedSeat,
           fare: fare,
           payment_method: paymentMethod,
