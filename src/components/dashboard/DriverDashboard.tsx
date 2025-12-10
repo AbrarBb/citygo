@@ -90,42 +90,57 @@ const DriverDashboard = () => {
   };
 
   const fetchAvailableSupervisors = async () => {
-    // Get all users with supervisor role who are not currently assigned to an active bus
-    const { data: supervisorRoles } = await supabase
-      .from("user_roles")
-      .select("user_id")
-      .eq("role", "supervisor");
+    // Use database function to get available supervisors (bypasses RLS)
+    const { data: supervisors, error } = await supabase
+      .rpc('get_available_supervisors' as any);
 
-    if (!supervisorRoles || supervisorRoles.length === 0) return;
+    if (error) {
+      console.error('Error fetching supervisors:', error);
+      return;
+    }
 
-    const supervisorUserIds = supervisorRoles.map(r => r.user_id);
-
-    // Get supervisors who are NOT currently assigned to any bus with active trip
-    const { data: busyBuses } = await supabase
-      .from("buses")
-      .select("supervisor_id")
-      .not("supervisor_id", "is", null);
-
-    const busySupervisorIds = busyBuses?.map(b => b.supervisor_id).filter(Boolean) || [];
-
-    // Get profiles of available supervisors
-    const { data: supervisors } = await supabase
-      .from("profiles")
-      .select("user_id, full_name")
-      .in("user_id", supervisorUserIds);
-
-    if (supervisors) {
-      // Filter out busy supervisors (except the one already assigned to this bus)
-      const available = supervisors
-        .filter(s => !busySupervisorIds.includes(s.user_id) || s.user_id === busInfo?.supervisor_id)
-        .map(s => ({
-          id: s.user_id,
-          full_name: s.full_name,
-          user_id: s.user_id
-        }));
+    if (supervisors && Array.isArray(supervisors)) {
+      const available = supervisors.map((s: { user_id: string; full_name: string }) => ({
+        id: s.user_id,
+        full_name: s.full_name,
+        user_id: s.user_id
+      }));
       setAvailableSupervisors(available);
     }
   };
+
+  // Real-time subscription for bus updates (supervisor notifications)
+  useEffect(() => {
+    if (!busInfo?.id) return;
+
+    const channel = supabase
+      .channel(`bus-${busInfo.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'buses',
+          filter: `id=eq.${busInfo.id}`
+        },
+        (payload) => {
+          const newData = payload.new as any;
+          setBusInfo((prev: any) => ({ ...prev, ...newData }));
+          
+          if (newData.supervisor_id && newData.supervisor_id !== payload.old?.supervisor_id) {
+            toast({
+              title: "Supervisor Updated",
+              description: "Bus supervisor assignment has been updated",
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [busInfo?.id]);
 
   const fetchBusInfo = async () => {
     if (!user) return;
