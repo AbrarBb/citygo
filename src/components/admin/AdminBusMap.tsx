@@ -127,7 +127,7 @@ const AdminBusMap = () => {
 
         <div className="h-[600px]">
           <MapView
-            center={[centerLng, centerLat]}
+            center={[centerLat, centerLng]}
             zoom={12}
             buses={validBuses.map((bus) => ({
               id: bus.id,
