@@ -54,7 +54,7 @@ serve(async (req) => {
       );
     }
 
-    // Get assigned bus with route details
+    // Get assigned bus with route and driver details
     const { data: bus, error: busError } = await supabase
       .from("buses")
       .select(`
@@ -64,6 +64,7 @@ serve(async (req) => {
         capacity,
         current_location,
         route_id,
+        driver_id,
         routes (
           id,
           name,
@@ -89,9 +90,31 @@ serve(async (req) => {
     if (!bus) {
       console.log(`[supervisor-bus] No bus assigned to supervisor: ${userId}`);
       return new Response(
-        JSON.stringify({ error: "No bus assigned to this supervisor" }),
+        JSON.stringify({ 
+          error: "No bus assigned to this supervisor",
+          is_active: false,
+          message: "Waiting for driver to assign you to a bus"
+        }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // Get driver profile if assigned
+    let driverInfo = null;
+    if (bus.driver_id) {
+      const { data: driver } = await supabase
+        .from("profiles")
+        .select("full_name, phone")
+        .eq("user_id", bus.driver_id)
+        .maybeSingle();
+      
+      if (driver) {
+        driverInfo = {
+          id: bus.driver_id,
+          name: driver.full_name,
+          phone: driver.phone
+        };
+      }
     }
 
     // Get current active trip for this bus
@@ -126,11 +149,13 @@ serve(async (req) => {
                   (todayTickets?.reduce((sum, t) => sum + (Number(t.fare) || 0), 0) || 0),
     };
 
-    console.log(`[supervisor-bus] Successfully fetched bus: ${bus.bus_number}`);
+    const isActive = bus.status === "active" && currentTrip !== null;
+    console.log(`[supervisor-bus] Successfully fetched bus: ${bus.bus_number}, active: ${isActive}`);
 
     return new Response(
       JSON.stringify({
         success: true,
+        is_active: isActive,
         bus: {
           id: bus.id,
           bus_number: bus.bus_number,
@@ -138,6 +163,7 @@ serve(async (req) => {
           capacity: bus.capacity,
           current_location: bus.current_location,
         },
+        driver: driverInfo,
         route: bus.routes ? {
           id: (bus.routes as any).id,
           name: (bus.routes as any).name,

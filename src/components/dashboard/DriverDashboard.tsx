@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Bus, MapPin, Users, PlayCircle, StopCircle, AlertTriangle, PauseCircle } from "lucide-react";
+import { Bus, MapPin, Users, PlayCircle, StopCircle, AlertTriangle, PauseCircle, UserCheck } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,6 +13,12 @@ import TripSummary from "./TripSummary";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+interface Supervisor {
+  id: string;
+  full_name: string;
+  user_id: string;
+}
+
 const DriverDashboard = () => {
   const [routeActive, setRouteActive] = useState(false);
   const [routePaused, setRoutePaused] = useState(false);
@@ -22,6 +28,8 @@ const DriverDashboard = () => {
   const [todayStats, setTodayStats] = useState({ passengers: 0, distance: 0, trips: 0 });
   const [availableRoutes, setAvailableRoutes] = useState<any[]>([]);
   const [selectedRouteId, setSelectedRouteId] = useState<string>("");
+  const [availableSupervisors, setAvailableSupervisors] = useState<Supervisor[]>([]);
+  const [selectedSupervisorId, setSelectedSupervisorId] = useState<string>("");
   const { user } = useAuth();
   const { toast } = useToast();
   const { location, isTracking, isIdle, startTracking, stopTracking } = useGPSTracking(
@@ -39,6 +47,7 @@ const DriverDashboard = () => {
     fetchBusInfo();
     fetchTodayStats();
     fetchAvailableRoutes();
+    fetchAvailableSupervisors();
   }, [user]);
 
   // Auto-start GPS tracking when bus is assigned
@@ -78,6 +87,44 @@ const DriverDashboard = () => {
       .eq("active", true);
     
     if (data) setAvailableRoutes(data);
+  };
+
+  const fetchAvailableSupervisors = async () => {
+    // Get all users with supervisor role who are not currently assigned to an active bus
+    const { data: supervisorRoles } = await supabase
+      .from("user_roles")
+      .select("user_id")
+      .eq("role", "supervisor");
+
+    if (!supervisorRoles || supervisorRoles.length === 0) return;
+
+    const supervisorUserIds = supervisorRoles.map(r => r.user_id);
+
+    // Get supervisors who are NOT currently assigned to any bus with active trip
+    const { data: busyBuses } = await supabase
+      .from("buses")
+      .select("supervisor_id")
+      .not("supervisor_id", "is", null);
+
+    const busySupervisorIds = busyBuses?.map(b => b.supervisor_id).filter(Boolean) || [];
+
+    // Get profiles of available supervisors
+    const { data: supervisors } = await supabase
+      .from("profiles")
+      .select("user_id, full_name")
+      .in("user_id", supervisorUserIds);
+
+    if (supervisors) {
+      // Filter out busy supervisors (except the one already assigned to this bus)
+      const available = supervisors
+        .filter(s => !busySupervisorIds.includes(s.user_id) || s.user_id === busInfo?.supervisor_id)
+        .map(s => ({
+          id: s.user_id,
+          full_name: s.full_name,
+          user_id: s.user_id
+        }));
+      setAvailableSupervisors(available);
+    }
   };
 
   const fetchBusInfo = async () => {
@@ -213,8 +260,44 @@ const DriverDashboard = () => {
     }
   };
 
+  const handleSupervisorChange = async (supervisorId: string) => {
+    setSelectedSupervisorId(supervisorId);
+    
+    // Update bus with selected supervisor
+    const { error } = await supabase
+      .from("buses")
+      .update({ supervisor_id: supervisorId })
+      .eq("id", busInfo?.id);
+
+    if (!error) {
+      toast({
+        title: "Supervisor Assigned",
+        description: "Supervisor has been assigned to this bus",
+      });
+      fetchBusInfo();
+    }
+  };
+
   const handleStartRoute = async () => {
     if (!busInfo || !location || !user) return;
+
+    if (!selectedSupervisorId) {
+      toast({
+        title: "Supervisor Required",
+        description: "Please select a supervisor before starting the route",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Update bus status to active
+    await supabase
+      .from("buses")
+      .update({ 
+        status: "active",
+        supervisor_id: selectedSupervisorId 
+      })
+      .eq("id", busInfo.id);
 
     const { data: trip, error } = await supabase
       .from("trips")
@@ -247,7 +330,7 @@ const DriverDashboard = () => {
 
     toast({
       title: "Route Started",
-      description: "GPS tracking is now active",
+      description: "GPS tracking is now active. Supervisor notified.",
     });
   };
 
@@ -294,11 +377,22 @@ const DriverDashboard = () => {
       return;
     }
 
+    // Update bus status to idle and clear supervisor
+    await supabase
+      .from("buses")
+      .update({ 
+        status: "idle",
+        supervisor_id: null 
+      })
+      .eq("id", busInfo?.id);
+
     stopTracking();
     setRouteActive(false);
     setRoutePaused(false);
     setCurrentTrip(null);
+    setSelectedSupervisorId("");
     fetchTodayStats();
+    fetchAvailableSupervisors();
 
     toast({
       title: "Route Ended",
@@ -380,6 +474,27 @@ const DriverDashboard = () => {
                     </SelectContent>
                   </Select>
                 </div>
+                <div>
+                  <label className="text-sm text-white/90 mb-2 block flex items-center gap-2">
+                    <UserCheck className="w-4 h-4" />
+                    <strong>Select Supervisor</strong>
+                  </label>
+                  <Select value={selectedSupervisorId} onValueChange={handleSupervisorChange}>
+                    <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                      <SelectValue placeholder="Choose a supervisor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableSupervisors.map((supervisor) => (
+                        <SelectItem key={supervisor.id} value={supervisor.id}>
+                          {supervisor.full_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {availableSupervisors.length === 0 && (
+                    <p className="text-xs text-yellow-300 mt-1">No supervisors available</p>
+                  )}
+                </div>
                 <p className="text-sm text-white/80">
                   Bus: {busInfo.bus_number}
                 </p>
@@ -390,6 +505,12 @@ const DriverDashboard = () => {
                   <p className="text-sm text-yellow-300 mt-2 flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4" />
                     Waiting for GPS signal...
+                  </p>
+                )}
+                {!selectedSupervisorId && location && (
+                  <p className="text-sm text-yellow-300 mt-2 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" />
+                    Please select a supervisor to start
                   </p>
                 )}
               </div>
