@@ -8,6 +8,7 @@ interface MapViewProps {
     bus_number: string;
     current_location: { lat: number; lng: number };
     route_name?: string;
+    status?: string;
   }>;
   routes?: Array<{
     id: string;
@@ -181,24 +182,44 @@ const MapView = ({
         const lng = typeof lngRaw === 'string' ? parseFloat(lngRaw) : lngRaw;
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
         const position = { lat, lng };
+        
+        // Choose color based on status
+        const getStatusColor = (status?: string) => {
+          switch (status) {
+            case 'active': return '#22c55e'; // green
+            case 'idle': return '#f59e0b'; // amber
+            case 'delayed': return '#ef4444'; // red
+            default: return '#6b7280'; // gray
+          }
+        };
+        const statusColor = getStatusColor(bus.status);
+        
+        const iconSvg = `
+          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="11" fill="${statusColor}" stroke="#ffffff" stroke-width="2"/>
+            <rect x="6" y="6" width="12" height="10" rx="2" fill="#ffffff"/>
+            <rect x="7" y="7" width="4" height="3" fill="${statusColor}"/>
+            <rect x="13" y="7" width="4" height="3" fill="${statusColor}"/>
+            <circle cx="8" cy="15" r="1.5" fill="#333"/>
+            <circle cx="16" cy="15" r="1.5" fill="#333"/>
+          </svg>
+        `;
+        
         if (markers.current[bus.id]) {
           markers.current[bus.id].setPosition(position);
+          // Update icon if status changed
+          markers.current[bus.id].setIcon({
+            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(iconSvg),
+            scaledSize: new google.maps.Size(48, 48),
+            anchor: new google.maps.Point(24, 24),
+          });
         } else {
           const marker = new google.maps.Marker({
             position: position,
             map: map.current,
             title: bus.bus_number,
             icon: {
-              url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="11" fill="#22c55e" stroke="#ffffff" stroke-width="2"/>
-                  <rect x="6" y="6" width="12" height="10" rx="2" fill="#ffffff"/>
-                  <rect x="7" y="7" width="4" height="3" fill="#22c55e"/>
-                  <rect x="13" y="7" width="4" height="3" fill="#22c55e"/>
-                  <circle cx="8" cy="15" r="1.5" fill="#333"/>
-                  <circle cx="16" cy="15" r="1.5" fill="#333"/>
-                </svg>
-              `),
+              url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(iconSvg),
               scaledSize: new google.maps.Size(48, 48),
               anchor: new google.maps.Point(24, 24),
             },
@@ -206,11 +227,13 @@ const MapView = ({
             zIndex: 1000,
           });
 
+          const statusLabel = bus.status === 'active' ? 'On Route' : bus.status === 'idle' ? 'Idle' : bus.status === 'delayed' ? 'Delayed' : 'Unknown';
           const infoWindow = new google.maps.InfoWindow({
             content: `
               <div class="p-2">
                 <h3 class="font-bold text-sm">${bus.bus_number}</h3>
                 ${bus.route_name ? `<p class="text-xs text-gray-600">${bus.route_name}</p>` : ""}
+                <p class="text-xs mt-1" style="color: ${statusColor}">${statusLabel}</p>
               </div>
             `,
           });
