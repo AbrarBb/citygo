@@ -86,7 +86,7 @@ serve(async (req) => {
       });
     }
 
-    // Fetch bookings - filter by valid statuses only
+    // Fetch bookings - filter by valid statuses only (no join to avoid FK issues)
     let query = supabaseClient
       .from('bookings')
       .select(`
@@ -99,8 +99,7 @@ serve(async (req) => {
         payment_method,
         payment_status,
         fare,
-        user_id,
-        profiles:user_id (full_name, card_id)
+        user_id
       `)
       .eq('bus_id', assignedBus.id)
       .in('booking_status', ['confirmed', 'booked', 'occupied'])
@@ -122,6 +121,24 @@ serve(async (req) => {
 
     console.log(`Found ${bookings?.length || 0} bookings for bus ${assignedBus.bus_number}`);
 
+    // Fetch profiles separately for all user_ids
+    const userIds = [...new Set((bookings || []).map(b => b.user_id).filter(Boolean))];
+    let profilesMap: Record<string, { full_name: string; card_id: string | null }> = {};
+    
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabaseClient
+        .from('profiles')
+        .select('user_id, full_name, card_id')
+        .in('user_id', userIds);
+      
+      if (profiles) {
+        profilesMap = profiles.reduce((acc, p) => {
+          acc[p.user_id] = { full_name: p.full_name, card_id: p.card_id };
+          return acc;
+        }, {} as Record<string, { full_name: string; card_id: string | null }>);
+      }
+    }
+
     // Calculate stats - only count valid seat numbers (1-40)
     const totalSeats = assignedBus.capacity || 40;
     const validBookings = (bookings || []).filter(b => 
@@ -133,19 +150,22 @@ serve(async (req) => {
     console.log(`Valid bookings with seats 1-${totalSeats}: ${bookedSeats}`);
 
     // Transform to expected format - only include valid seat numbers
-    const formattedBookings = validBookings.map(booking => ({
-      id: booking.id,
-      bus_id: booking.bus_id,
-      seat_number: booking.seat_no,
-      passenger_name: (booking.profiles as any)?.full_name || 'Unknown',
-      card_id: (booking.profiles as any)?.card_id || null,
-      status: booking.booking_status || 'confirmed',
-      booked_at: booking.booking_date,
-      travel_date: booking.travel_date,
-      booking_type: booking.payment_method === 'rapid_card' ? 'rapid_card' : 'online',
-      fare: booking.fare,
-      payment_status: booking.payment_status,
-    }));
+    const formattedBookings = validBookings.map(booking => {
+      const profile = profilesMap[booking.user_id] || { full_name: 'Unknown', card_id: null };
+      return {
+        id: booking.id,
+        bus_id: booking.bus_id,
+        seat_number: booking.seat_no,
+        passenger_name: profile.full_name,
+        card_id: profile.card_id,
+        status: booking.booking_status || 'confirmed',
+        booked_at: booking.booking_date,
+        travel_date: booking.travel_date,
+        booking_type: booking.payment_method === 'rapid_card' ? 'rapid_card' : 'online',
+        fare: booking.fare,
+        payment_status: booking.payment_status,
+      };
+    });
 
     return new Response(JSON.stringify({
       success: true,
