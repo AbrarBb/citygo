@@ -73,7 +73,12 @@ const Book = () => {
 
   const calculateFare = () => {
     if (!route) return 0;
-    return route.base_fare + (route.distance * route.fare_per_km);
+    const fare = route.base_fare + (route.distance * route.fare_per_km);
+    return Math.round(fare * 100) / 100; // Round to 2 decimal places
+  };
+
+  const formatFare = (amount: number) => {
+    return amount % 1 === 0 ? amount.toString() : amount.toFixed(2);
   };
 
   const calculateCO2Saved = () => {
@@ -212,7 +217,7 @@ const Book = () => {
         >
           <Card className="p-6 mb-6 bg-gradient-hero text-white">
             <h2 className="text-2xl font-bold mb-2">{route.name}</h2>
-            <p className="text-white/80">{route.distance} km • Estimated Fare: ৳{calculateFare()}</p>
+            <p className="text-white/80">{route.distance} km • Estimated Fare: ৳{formatFare(calculateFare())}</p>
             <p className="text-sm text-white/60 mt-2">
               CO₂ you'll save: {calculateCO2Saved()} kg
             </p>
@@ -245,7 +250,7 @@ const Book = () => {
                     <div>
                       <p className="font-medium">Rapid Card</p>
                       <p className="text-sm text-muted-foreground">
-                        Balance: ৳{profile?.card_balance || 0}
+                        Balance: ৳{formatFare(profile?.card_balance || 0)}
                       </p>
                     </div>
                   </Label>
@@ -269,7 +274,7 @@ const Book = () => {
                 </div>
                 <div className="flex justify-between">
                   <span>Fare:</span>
-                  <span className="font-bold">৳{calculateFare()}</span>
+                  <span className="font-bold">৳{formatFare(calculateFare())}</span>
                 </div>
                 <div className="flex justify-between text-sm text-primary">
                   <span>Points to earn:</span>
