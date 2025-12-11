@@ -153,17 +153,34 @@ serve(async (req) => {
     console.log(`[supervisor-bus] Successfully fetched bus: ${bus.bus_number}, active: ${isActive}`);
 
     // Transform stops to ensure proper format with id, name, latitude, longitude, order
+    // Skip stops with missing/invalid coordinates instead of defaulting to 0
     let formattedStops: any[] = [];
     if (bus.routes && (bus.routes as any).stops) {
       const rawStops = (bus.routes as any).stops;
       if (Array.isArray(rawStops)) {
-        formattedStops = rawStops.map((stop: any, index: number) => ({
-          id: stop.id || `stop-${index + 1}`,
-          name: stop.name || `Stop ${index + 1}`,
-          latitude: stop.latitude || stop.lat || 0,
-          longitude: stop.longitude || stop.lng || 0,
-          order: stop.order ?? index + 1,
-        })).sort((a: any, b: any) => a.order - b.order);
+        formattedStops = rawStops
+          .map((stop: any, index: number) => {
+            const lat = stop.latitude || stop.lat;
+            const lng = stop.longitude || stop.lng;
+            
+            // Skip stops without valid coordinates
+            if (!lat || !lng || lat === 0 || lng === 0) {
+              console.log(`[supervisor-bus] Skipping stop with invalid coordinates: ${stop.name || `Stop ${index + 1}`}`);
+              return null;
+            }
+            
+            return {
+              id: stop.id || `stop-${index + 1}`,
+              name: stop.name || `Stop ${index + 1}`,
+              latitude: lat,
+              longitude: lng,
+              order: stop.order ?? index + 1,
+            };
+          })
+          .filter((stop: any) => stop !== null)
+          .sort((a: any, b: any) => a.order - b.order);
+        
+        console.log(`[supervisor-bus] Formatted ${formattedStops.length} valid stops out of ${rawStops.length} total`);
       }
     }
 
