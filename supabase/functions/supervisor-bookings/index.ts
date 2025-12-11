@@ -86,7 +86,7 @@ serve(async (req) => {
       });
     }
 
-    // Fetch bookings - using actual schema columns
+    // Fetch bookings - filter by valid statuses only
     let query = supabaseClient
       .from('bookings')
       .select(`
@@ -103,9 +103,10 @@ serve(async (req) => {
         profiles:user_id (full_name, card_id)
       `)
       .eq('bus_id', assignedBus.id)
+      .in('booking_status', ['confirmed', 'booked', 'occupied'])
       .order('seat_no', { ascending: true });
 
-    // Filter by travel_date if provided
+    // Only filter by travel_date if explicitly provided by app
     if (date) {
       const startOfDay = `${date}T00:00:00.000Z`;
       const endOfDay = `${date}T23:59:59.999Z`;
@@ -119,23 +120,26 @@ serve(async (req) => {
       throw error;
     }
 
-    console.log(`Found ${bookings?.length || 0} bookings`);
+    console.log(`Found ${bookings?.length || 0} bookings for bus ${assignedBus.bus_number}`);
 
-    // Calculate stats
+    // Calculate stats - only count valid seat numbers (1-40)
     const totalSeats = assignedBus.capacity || 40;
-    const bookedSeats = bookings?.filter(b =>
-      b.booking_status === 'confirmed' || b.booking_status === 'booked'
-    ).length || 0;
+    const validBookings = (bookings || []).filter(b => 
+      b.seat_no !== null && b.seat_no >= 1 && b.seat_no <= totalSeats
+    );
+    const bookedSeats = validBookings.length;
     const availableSeats = totalSeats - bookedSeats;
 
-    // Transform to expected format
-    const formattedBookings = (bookings || []).map(booking => ({
+    console.log(`Valid bookings with seats 1-${totalSeats}: ${bookedSeats}`);
+
+    // Transform to expected format - only include valid seat numbers
+    const formattedBookings = validBookings.map(booking => ({
       id: booking.id,
       bus_id: booking.bus_id,
       seat_number: booking.seat_no,
       passenger_name: (booking.profiles as any)?.full_name || 'Unknown',
       card_id: (booking.profiles as any)?.card_id || null,
-      status: booking.booking_status || 'booked',
+      status: booking.booking_status || 'confirmed',
       booked_at: booking.booking_date,
       travel_date: booking.travel_date,
       booking_type: booking.payment_method === 'rapid_card' ? 'rapid_card' : 'online',
