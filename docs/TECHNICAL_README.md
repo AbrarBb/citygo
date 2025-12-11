@@ -25,18 +25,18 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              CLIENT LAYER                                    │
+│                              CLIENT LAYER                                   │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────────┐  │
 │  │   React Web App │  │ Flutter Mobile  │  │    External Integrations    │  │
 │  │   (Vite + TS)   │  │  (Supervisor)   │  │  (Google Maps, Air Quality) │  │
 │  └────────┬────────┘  └────────┬────────┘  └─────────────┬───────────────┘  │
-│           │                    │                         │                   │
-└───────────┼────────────────────┼─────────────────────────┼───────────────────┘
+│           │                    │                         │                  │
+└───────────┼────────────────────┼─────────────────────────┼──────────────────┘
             │                    │                         │
             ▼                    ▼                         ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           SUPABASE LAYER                                     │
+│                           SUPABASE LAYER                                    │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
 │  │    Auth     │  │  Database   │  │   Storage   │  │   Edge Functions    │ │
@@ -45,14 +45,14 @@
 │         │                │                │                    │            │
 │         ▼                ▼                ▼                    ▼            │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │                        Row Level Security (RLS)                       │   │
-│  │              Policies enforce role-based data access                  │   │
+│  │                        Row Level Security (RLS)                      │   │
+│  │              Policies enforce role-based data access                 │   │
 │  └──────────────────────────────────────────────────────────────────────┘   │
-│                                    │                                         │
-│                                    ▼                                         │
+│                                    │                                        │
+│                                    ▼                                        │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │                         Realtime Engine                               │   │
-│  │         WebSocket subscriptions for live bus tracking                 │   │
+│  │                         Realtime Engine                              │   │
+│  │         WebSocket subscriptions for live bus tracking                │   │
 │  └──────────────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -61,7 +61,7 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
-│                        REQUEST FLOW DIAGRAM                               │
+│                        REQUEST FLOW DIAGRAM                              │
 └──────────────────────────────────────────────────────────────────────────┘
 
 User Action → React Component → Supabase Client → Auth Check → RLS Policy
@@ -99,26 +99,26 @@ User Action → React Component → Supabase Client → Auth Check → RLS Polic
 ### 1.4 Supabase Components Used
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    SUPABASE SERVICES                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌─────────────┐   ┌─────────────┐   ┌─────────────────────┐   │
-│  │    AUTH     │   │   DATABASE  │   │   EDGE FUNCTIONS    │   │
-│  ├─────────────┤   ├─────────────┤   ├─────────────────────┤   │
-│  │ • Email/Pwd │   │ • 11 Tables │   │ • supervisor-auth   │   │
-│  │ • JWT Token │   │ • RLS Rules │   │ • supervisor-bus    │   │
-│  │ • Session   │   │ • Triggers  │   │ • nfc-tap-in        │   │
-│  │ • Auto-     │   │ • Functions │   │ • nfc-tap-out       │   │
-│  │   refresh   │   │ • Realtime  │   │ • nfc-sync          │   │
-│  └─────────────┘   └─────────────┘   │ • manual-ticket     │   │
-│                                      │ • supervisor-reports│   │
-│                                      │ • supervisor-bookings│  │
-│                                      │ • registered-cards  │   │
-│                                      │ • admin-api         │   │
-│                                      └─────────────────────┘   │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────┐
+│                    SUPABASE SERVICES                              │
+├───────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  ┌─────────────┐   ┌─────────────┐   ┌───────────────────────┐    │
+│  │    AUTH     │   │   DATABASE  │   │   EDGE FUNCTIONS      │    │
+│  ├─────────────┤   ├─────────────┤   ├───────────────────────┤    │
+│  │ • Email/Pwd │   │ • 11 Tables │   │ • supervisor-auth     │    │
+│  │ • JWT Token │   │ • RLS Rules │   │ • supervisor-bus      │    │
+│  │ • Session   │   │ • Triggers  │   │ • nfc-tap-in          │    │
+│  │ • Auto-     │   │ • Functions │   │ • nfc-tap-out         │    │
+│  │   refresh   │   │ • Realtime  │   │ • nfc-sync            │    │
+│  └─────────────┘   └─────────────┘   │ • manual-ticket       │    │
+│                                      │ • supervisor-reports  │    │
+│                                      │ • supervisor-bookings │    │
+│                                      │ • registered-cards    │    │
+│                                      │ • admin-api           │    │
+│                                      └───────────────────────┘    │
+│                                                                   │
+└───────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -1312,9 +1312,9 @@ serve(async (req) => {
 ### 5.1 Booking Flow Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        BOOKING FLOW                                      │
-└─────────────────────────────────────────────────────────────────────────┘
+┌──────────────────┐
+│   BOOKING FLOW   │
+└──────────────────┘
 
 User selects route
         │
@@ -1779,10 +1779,10 @@ SUPABASE_PUBLISHABLE_KEY
 #### Authentication Flow
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    AUTHENTICATION SECURITY                       │
+│                    AUTHENTICATION SECURITY                      │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  1. User signs in via Supabase Auth                            │
+│  1. User signs in via Supabase Auth                             │
 │  2. JWT token generated with user claims                        │
 │  3. Token stored in localStorage (encrypted)                    │
 │  4. Token auto-refreshes before expiry                          │
@@ -1796,13 +1796,13 @@ SUPABASE_PUBLISHABLE_KEY
 #### RLS Security Model
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    ROW LEVEL SECURITY                            │
+│                    ROW LEVEL SECURITY                           │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  Every table has RLS enabled                                    │
 │                                                                 │
 │  Access patterns:                                               │
-│  • Users: Own data only (WHERE user_id = auth.uid())           │
+│  • Users: Own data only (WHERE user_id = auth.uid())            │
 │  • Supervisors: Own data + assigned bus data                    │
 │  • Admins: Full access via has_role() function                  │
 │  • Public: Read-only on specific tables (routes, buses)         │
@@ -1850,7 +1850,7 @@ console.log(`[${functionName}] ${action}: ${JSON.stringify(data)}`);
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                          DATABASE SCHEMA                                     │
+│                          DATABASE SCHEMA                                    │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────┐       ┌─────────────┐       ┌─────────────┐
