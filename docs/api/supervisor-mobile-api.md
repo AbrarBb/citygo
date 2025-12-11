@@ -97,6 +97,148 @@ Authorization: Bearer <token>
 
 ---
 
+## Bookings
+
+### GET `/supervisor-bookings`
+Get seat bookings for the supervisor's assigned bus.
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| bus_id | uuid | No | Bus ID (defaults to assigned bus) |
+| date | string | No | Filter by travel date (YYYY-MM-DD) |
+
+**Example Request:**
+```
+GET /supervisor-bookings?date=2024-01-15
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "bus_id": "550e8400-e29b-41d4-a716-446655440000",
+  "bus_number": "DHK-BUS-102",
+  "total_seats": 40,
+  "available_seats": 28,
+  "booked_seats": 12,
+  "bookings": [
+    {
+      "id": "booking-uuid-1",
+      "bus_id": "550e8400-e29b-41d4-a716-446655440000",
+      "seat_number": 1,
+      "passenger_name": "John Doe",
+      "card_id": "RC-47b8dbab",
+      "status": "confirmed",
+      "booked_at": "2024-01-14T10:30:00Z",
+      "travel_date": "2024-01-15T08:00:00Z",
+      "booking_type": "online",
+      "fare": 45.00,
+      "payment_status": "completed"
+    },
+    {
+      "id": "booking-uuid-2",
+      "bus_id": "550e8400-e29b-41d4-a716-446655440000",
+      "seat_number": 5,
+      "passenger_name": "Jane Smith",
+      "card_id": "RC-12345abc",
+      "status": "confirmed",
+      "booked_at": "2024-01-14T14:20:00Z",
+      "travel_date": "2024-01-15T08:00:00Z",
+      "booking_type": "rapid_card",
+      "fare": 45.00,
+      "payment_status": "completed"
+    }
+  ]
+}
+```
+
+**Response (404) - No Bus Assigned:**
+```json
+{
+  "success": false,
+  "error": "No bus assigned to supervisor"
+}
+```
+
+**Flutter Usage Example:**
+```dart
+// Fetch bookings for today
+Future<BookingsResponse> getBookings() async {
+  final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+  final response = await dio.get(
+    '$baseUrl/supervisor-bookings',
+    queryParameters: {'date': today},
+    options: Options(headers: {'Authorization': 'Bearer $token'}),
+  );
+  return BookingsResponse.fromJson(response.data);
+}
+
+// Data Model
+class BookingsResponse {
+  final bool success;
+  final String busId;
+  final String busNumber;
+  final int totalSeats;
+  final int availableSeats;
+  final int bookedSeats;
+  final List<Booking> bookings;
+  
+  factory BookingsResponse.fromJson(Map<String, dynamic> json) {
+    return BookingsResponse(
+      success: json['success'],
+      busId: json['bus_id'],
+      busNumber: json['bus_number'],
+      totalSeats: json['total_seats'],
+      availableSeats: json['available_seats'],
+      bookedSeats: json['booked_seats'],
+      bookings: (json['bookings'] as List)
+          .map((b) => Booking.fromJson(b))
+          .toList(),
+    );
+  }
+}
+
+class Booking {
+  final String id;
+  final int? seatNumber;
+  final String passengerName;
+  final String? cardId;
+  final String status;
+  final DateTime? bookedAt;
+  final DateTime? travelDate;
+  final String bookingType;
+  final double fare;
+  final String? paymentStatus;
+  
+  factory Booking.fromJson(Map<String, dynamic> json) {
+    return Booking(
+      id: json['id'],
+      seatNumber: json['seat_number'],
+      passengerName: json['passenger_name'] ?? 'Unknown',
+      cardId: json['card_id'],
+      status: json['status'] ?? 'booked',
+      bookedAt: json['booked_at'] != null 
+          ? DateTime.parse(json['booked_at']) 
+          : null,
+      travelDate: json['travel_date'] != null 
+          ? DateTime.parse(json['travel_date']) 
+          : null,
+      bookingType: json['booking_type'] ?? 'online',
+      fare: (json['fare'] ?? 0).toDouble(),
+      paymentStatus: json['payment_status'],
+    );
+  }
+}
+```
+
+---
+
 ## NFC Operations
 
 ### POST `/nfc-tap-in`
