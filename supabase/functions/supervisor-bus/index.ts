@@ -152,6 +152,21 @@ serve(async (req) => {
     const isActive = bus.status === "active" && currentTrip !== null;
     console.log(`[supervisor-bus] Successfully fetched bus: ${bus.bus_number}, active: ${isActive}`);
 
+    // Transform stops to ensure proper format with id, name, latitude, longitude, order
+    let formattedStops: any[] = [];
+    if (bus.routes && (bus.routes as any).stops) {
+      const rawStops = (bus.routes as any).stops;
+      if (Array.isArray(rawStops)) {
+        formattedStops = rawStops.map((stop: any, index: number) => ({
+          id: stop.id || `stop-${index + 1}`,
+          name: stop.name || `Stop ${index + 1}`,
+          latitude: stop.latitude || stop.lat || 0,
+          longitude: stop.longitude || stop.lng || 0,
+          order: stop.order ?? index + 1,
+        })).sort((a: any, b: any) => a.order - b.order);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -167,7 +182,7 @@ serve(async (req) => {
         route: bus.routes ? {
           id: (bus.routes as any).id,
           name: (bus.routes as any).name,
-          stops: (bus.routes as any).stops,
+          stops: formattedStops,
           distance: (bus.routes as any).distance,
           base_fare: (bus.routes as any).base_fare,
           fare_per_km: (bus.routes as any).fare_per_km,
