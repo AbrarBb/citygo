@@ -80,18 +80,32 @@ const TrackBus = () => {
 
   const fetchData = async () => {
     try {
-      const { data: busData, error: busError } = await supabase
+      // First, try to find a bus with this ID
+      let { data: busData, error: busError } = await supabase
         .from("buses")
         .select("*, routes(id, name, stops, distance)")
         .eq("id", busId)
         .maybeSingle();
 
+      // If no bus found, maybe busId is actually a route ID - find active bus on that route
+      if (!busData && !busError) {
+        const { data: routeBus, error: routeError } = await supabase
+          .from("buses")
+          .select("*, routes(id, name, stops, distance)")
+          .eq("route_id", busId)
+          .eq("status", "active")
+          .maybeSingle();
+
+        if (routeError) throw routeError;
+        busData = routeBus;
+      }
+
       if (busError) throw busError;
       
       if (!busData) {
         toast({
-          title: "Bus Not Found",
-          description: "This bus does not exist or is no longer available",
+          title: "No Active Bus",
+          description: "No active bus found on this route. Please try again later.",
           variant: "destructive",
         });
         setLoading(false);
