@@ -223,7 +223,7 @@ FOR SELECT USING (auth.uid() = user_id);
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                    USER REGISTRATION FLOW                         │
+│                    USER REGISTRATION FLOW                        │
 └──────────────────────────────────────────────────────────────────┘
 
 1. User signs up via Auth page
@@ -870,7 +870,7 @@ Supervisor scans card
 └───────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                            TAP-IN FLOW                                   │
+│                            TAP-IN FLOW                                  │
 └─────────────────────────────────────────────────────────────────────────┘
 
 1. Validate card_id exists in profiles
@@ -882,7 +882,7 @@ Supervisor scans card
 4. Return success response
 
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                           TAP-OUT FLOW                                   │
+│                           TAP-OUT FLOW                                  │
 └─────────────────────────────────────────────────────────────────────────┘
 
 1. Find active tap-in record
@@ -1268,18 +1268,18 @@ serve(async (req) => {
 │                    FARE CALCULATION                             │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│   fare = MAX(base_fare, base_fare + (distance × fare_per_km))  │
+│   fare = MAX(base_fare, base_fare + (distance × fare_per_km))   │
 │                                                                 │
 │   Where:                                                        │
-│   • base_fare = Route's minimum fare (default: ৳20)            │
-│   • fare_per_km = Rate per kilometer (default: ৳1.50)          │
-│   • distance = Haversine distance between tap-in and tap-out   │
+│   • base_fare = Route's minimum fare (default: ৳20)             │
+│   • fare_per_km = Rate per kilometer (default: ৳1.50)           │
+│   • distance = Haversine distance between tap-in and tap-out    │
 │                                                                 │
 │   Example:                                                      │
-│   • base_fare = ৳20                                            │
-│   • fare_per_km = ৳1.50                                        │
+│   • base_fare = ৳20                                             │
+│   • fare_per_km = ৳1.50                                         │
 │   • distance = 8 km                                             │
-│   • fare = MAX(20, 20 + (8 × 1.50)) = MAX(20, 32) = ৳32        │
+│   • fare = MAX(20, 20 + (8 × 1.50)) = MAX(20, 32) = ৳32         │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -1291,16 +1291,16 @@ serve(async (req) => {
 │                    CO₂ SAVINGS CALCULATION                      │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│   co2_saved (kg) = distance (km) × 0.15                        │
+│   co2_saved (kg) = distance (km) × 0.15                         │
 │                                                                 │
 │   Based on:                                                     │
-│   • Average car emits ~0.21 kg CO₂ per km                      │
-│   • Bus emits ~0.06 kg CO₂ per passenger-km                    │
-│   • Net savings = 0.21 - 0.06 = 0.15 kg per km                 │
+│   • Average car emits ~0.21 kg CO₂ per km                       │
+│   • Bus emits ~0.06 kg CO₂ per passenger-km                     │
+│   • Net savings = 0.21 - 0.06 = 0.15 kg per km                  │
 │                                                                 │
 │   User Interface Display:                                       │
-│   • Trees equivalent = co2_saved / 21 (kg CO₂ per tree/year)   │
-│   • Car km avoided = co2_saved / 0.21                          │
+│   • Trees equivalent = co2_saved / 21 (kg CO₂ per tree/year)    │
+│   • Car km avoided = co2_saved / 0.21                           │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
