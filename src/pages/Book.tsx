@@ -26,6 +26,7 @@ const Book = () => {
   const [paymentMethod, setPaymentMethod] = useState<string>("rapid_card");
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<any>(null);
+  const [bookedSeats, setBookedSeats] = useState<number[]>([]);
 
   useEffect(() => {
     if (!user) {
@@ -34,6 +35,7 @@ const Book = () => {
     }
     fetchRoute();
     fetchProfile();
+    fetchBookedSeats();
   }, [user, routeId]);
 
   const fetchRoute = async () => {
@@ -68,6 +70,28 @@ const Book = () => {
       setProfile(data);
     } catch (error) {
       console.error("Error fetching profile:", error);
+    }
+  };
+
+  const fetchBookedSeats = async () => {
+    try {
+      // Get today's date for filtering bookings
+      const today = new Date().toISOString().split('T')[0];
+      
+      const { data, error } = await supabase
+        .from("bookings")
+        .select("seat_no")
+        .eq("route_id", routeId)
+        .eq("booking_status", "confirmed")
+        .gte("travel_date", today)
+        .not("seat_no", "is", null);
+
+      if (error) throw error;
+      
+      const seats = data?.map(b => b.seat_no as number).filter(Boolean) || [];
+      setBookedSeats(seats);
+    } catch (error) {
+      console.error("Error fetching booked seats:", error);
     }
   };
 
@@ -226,17 +250,37 @@ const Book = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card className="p-6">
               <h3 className="text-xl font-bold mb-4">Select Seat</h3>
+              <div className="flex gap-4 mb-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-muted border" />
+                  <span>Available</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-destructive/20 border border-destructive" />
+                  <span>Booked</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-primary" />
+                  <span>Selected</span>
+                </div>
+              </div>
               <div className="grid grid-cols-4 gap-2">
-                {Array.from({ length: 40 }, (_, i) => i + 1).map((seat) => (
-                  <Button
-                    key={seat}
-                    variant={selectedSeat === seat ? "default" : "outline"}
-                    className={selectedSeat === seat ? "bg-gradient-primary" : ""}
-                    onClick={() => setSelectedSeat(seat)}
-                  >
-                    {seat}
-                  </Button>
-                ))}
+                {Array.from({ length: 40 }, (_, i) => i + 1).map((seat) => {
+                  const isBooked = bookedSeats.includes(seat);
+                  const isSelected = selectedSeat === seat;
+                  
+                  return (
+                    <Button
+                      key={seat}
+                      variant={isSelected ? "default" : isBooked ? "destructive" : "outline"}
+                      className={`${isSelected ? "bg-gradient-primary" : ""} ${isBooked ? "opacity-50 cursor-not-allowed bg-destructive/20 hover:bg-destructive/20" : ""}`}
+                      onClick={() => !isBooked && setSelectedSeat(seat)}
+                      disabled={isBooked}
+                    >
+                      {seat}
+                    </Button>
+                  );
+                })}
               </div>
             </Card>
 
