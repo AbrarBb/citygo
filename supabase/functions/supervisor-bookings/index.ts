@@ -86,7 +86,8 @@ serve(async (req) => {
       });
     }
 
-    // Fetch bookings - filter by valid statuses only (no join to avoid FK issues)
+    // Fetch bookings - only show 'confirmed' status (active bookings)
+    // Note: 'completed' and 'cancelled' are excluded as they represent past/inactive bookings
     let query = supabaseClient
       .from('bookings')
       .select(`
@@ -103,7 +104,7 @@ serve(async (req) => {
         drop_stop
       `)
       .eq('bus_id', assignedBus.id)
-      .in('booking_status', ['confirmed', 'booked', 'occupied'])
+      .eq('booking_status', 'confirmed')
       .order('seat_no', { ascending: true });
 
     // Only filter by travel_date if explicitly provided by app
