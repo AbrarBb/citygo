@@ -150,6 +150,7 @@ export const LiveBusMap = () => {
           zoom={activeBuses.length > 0 ? 14 : 12}
           buses={activeBuses} 
           routes={routesToDisplay}
+          showHeatmapToggle={true}
           selectedStops={selectedStops}
           onBusClick={handleBusClick}
         />
