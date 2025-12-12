@@ -154,7 +154,7 @@ serve(async (req) => {
           seat_no: seat_number,
           drop_stop: drop_stop_id || null,
           fare,
-          booking_status: "booked",
+          booking_status: "confirmed",
           payment_method: "cash",
           payment_status: "completed",
           travel_date: issuedAt.toISOString(),
