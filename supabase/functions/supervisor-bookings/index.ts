@@ -99,7 +99,8 @@ serve(async (req) => {
         payment_method,
         payment_status,
         fare,
-        user_id
+        user_id,
+        drop_stop
       `)
       .eq('bus_id', assignedBus.id)
       .in('booking_status', ['confirmed', 'booked', 'occupied'])
@@ -164,6 +165,7 @@ serve(async (req) => {
         booking_type: booking.payment_method === 'rapid_card' ? 'rapid_card' : 'online',
         fare: booking.fare,
         payment_status: booking.payment_status,
+        drop_stop: booking.drop_stop,
       };
     });
 

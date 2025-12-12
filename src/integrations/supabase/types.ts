@@ -21,6 +21,7 @@ export type Database = {
           bus_id: string
           co2_saved: number | null
           created_at: string | null
+          drop_stop: string | null
           fare: number
           id: string
           payment_method: string | null
@@ -36,6 +37,7 @@ export type Database = {
           bus_id: string
           co2_saved?: number | null
           created_at?: string | null
+          drop_stop?: string | null
           fare: number
           id?: string
           payment_method?: string | null
@@ -51,6 +53,7 @@ export type Database = {
           bus_id?: string
           co2_saved?: number | null
           created_at?: string | null
+          drop_stop?: string | null
           fare?: number
           id?: string
           payment_method?: string | null
@@ -556,6 +559,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      release_bookings_at_stop: {
+        Args: { p_bus_id: string; p_stop_name: string }
+        Returns: number
       }
     }
     Enums: {
