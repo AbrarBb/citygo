@@ -62,6 +62,7 @@ serve(async (req) => {
       timestamp,
       offline_id,
       seat_number,
+      drop_stop_id,
       notes
     } = await req.json();
 
@@ -151,13 +152,14 @@ serve(async (req) => {
           route_id: bus.route_id,
           user_id: supervisorId, // Use supervisor as proxy user for manual tickets
           seat_no: seat_number,
+          drop_stop: drop_stop_id || null,
           fare,
           booking_status: "booked",
           payment_method: "cash",
           payment_status: "completed",
           travel_date: issuedAt.toISOString(),
         })
-        .select("id, seat_no, booking_status")
+        .select("id, seat_no, booking_status, drop_stop")
         .single();
 
       if (bookingError) {
@@ -168,9 +170,10 @@ serve(async (req) => {
           id: newBooking.id,
           seat_number: newBooking.seat_no,
           status: newBooking.booking_status,
+          drop_stop_id: newBooking.drop_stop,
           bus_id,
         };
-        console.log(`[manual-ticket] Booking created for seat ${seat_number}: ${newBooking.id}`);
+        console.log(`[manual-ticket] Booking created for seat ${seat_number} with drop_stop ${drop_stop_id}: ${newBooking.id}`);
       }
     }
 
