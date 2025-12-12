@@ -116,6 +116,11 @@ export const LiveBusMap = () => {
     })
     .filter((route) => route.stops.length > 1);
 
+  // Get stops for the selected bus's route
+  const selectedStops = selectedBus?.route_id
+    ? routesToDisplay.find(r => r.id === selectedBus.route_id)?.stops || []
+    : [];
+
   // Calculate center based on active buses
   const mapCenter: [number, number] = activeBuses.length > 0 && activeBuses[0].current_location
     ? [activeBuses[0].current_location.lat, activeBuses[0].current_location.lng]
@@ -145,6 +150,7 @@ export const LiveBusMap = () => {
           zoom={activeBuses.length > 0 ? 14 : 12}
           buses={activeBuses} 
           routes={routesToDisplay}
+          selectedStops={selectedStops}
           onBusClick={handleBusClick}
         />
         
