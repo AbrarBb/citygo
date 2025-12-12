@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Flame } from "lucide-react";
+import { fetchAirQuality } from "@/services/airQuality";
 
 interface BusData {
   id: string;
@@ -26,6 +29,7 @@ interface MapViewProps {
   }>;
   selectedStops?: StopData[];
   onBusClick?: (bus: BusData) => void;
+  showHeatmapToggle?: boolean;
 }
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyANU6LkHDgyHNjIIYfQV3YsnQ9Do_5uMGE";
@@ -36,15 +40,20 @@ const MapView = ({
   buses = [],
   routes = [],
   selectedStops = [],
-  onBusClick
+  onBusClick,
+  showHeatmapToggle = false
 }: MapViewProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   const markers = useRef<{ [key: string]: any }>({});
   const stopMarkers = useRef<any[]>([]);
   const polylines = useRef<any[]>([]);
+  const heatmapLayer = useRef<any>(null);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
   const [mapError, setMapError] = useState(false);
+  const [heatmapEnabled, setHeatmapEnabled] = useState(false);
+  const [airQualityData, setAirQualityData] = useState<{ aqi: number; category: string } | null>(null);
+  const [loadingHeatmap, setLoadingHeatmap] = useState(false);
 
   const loadGoogleMapsScript = () => {
     return new Promise<void>((resolve, reject) => {
@@ -71,7 +80,7 @@ const MapView = ({
 
       const script = document.createElement("script");
       script.id = "google-maps-script";
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry,places&v=weekly`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry,places,visualization&v=weekly`;
       script.async = true;
       script.defer = true;
       script.onload = () => resolve();
@@ -316,6 +325,84 @@ const MapView = ({
     });
   }, [selectedStops, isMapLoaded]);
 
+  // Handle heatmap toggle
+  useEffect(() => {
+    if (!map.current || !isMapLoaded) return;
+
+    const google = (window as any).google;
+    if (!google?.maps?.visualization) return;
+
+    const toggleHeatmap = async () => {
+      if (heatmapEnabled) {
+        setLoadingHeatmap(true);
+        try {
+          // Fetch air quality data for the current center
+          const aqData = await fetchAirQuality(center[0], center[1]);
+          setAirQualityData(aqData);
+
+          // Generate heatmap points based on AQI (higher AQI = more intense)
+          const generateHeatmapPoints = () => {
+            const points: any[] = [];
+            const intensity = aqData?.aqi ? Math.min(aqData.aqi / 100, 1) : 0.5;
+            
+            // Create a grid of points around the center
+            for (let i = -5; i <= 5; i++) {
+              for (let j = -5; j <= 5; j++) {
+                const lat = center[0] + (i * 0.005) + (Math.random() - 0.5) * 0.002;
+                const lng = center[1] + (j * 0.005) + (Math.random() - 0.5) * 0.002;
+                const weight = intensity * (0.5 + Math.random() * 0.5);
+                points.push({
+                  location: new google.maps.LatLng(lat, lng),
+                  weight: weight
+                });
+              }
+            }
+            return points;
+          };
+
+          const heatmapData = generateHeatmapPoints();
+
+          if (heatmapLayer.current) {
+            heatmapLayer.current.setMap(null);
+          }
+
+          heatmapLayer.current = new google.maps.visualization.HeatmapLayer({
+            data: heatmapData,
+            map: map.current,
+            radius: 50,
+            opacity: 0.6,
+            gradient: [
+              'rgba(0, 255, 0, 0)',
+              'rgba(0, 255, 0, 1)',
+              'rgba(255, 255, 0, 1)',
+              'rgba(255, 165, 0, 1)',
+              'rgba(255, 0, 0, 1)',
+            ]
+          });
+        } catch (error) {
+          console.error("Error loading air quality data:", error);
+        } finally {
+          setLoadingHeatmap(false);
+        }
+      } else {
+        if (heatmapLayer.current) {
+          heatmapLayer.current.setMap(null);
+          heatmapLayer.current = null;
+        }
+        setAirQualityData(null);
+      }
+    };
+
+    toggleHeatmap();
+  }, [heatmapEnabled, isMapLoaded, center]);
+
+  const getAqiColor = (aqi: number) => {
+    if (aqi >= 80) return "text-green-500";
+    if (aqi >= 60) return "text-yellow-500";
+    if (aqi >= 40) return "text-orange-500";
+    return "text-red-500";
+  };
+
   if (mapError) {
     return (
       <div className="w-full h-full rounded-lg border bg-card p-6 flex flex-col items-center justify-center gap-4">
@@ -332,6 +419,36 @@ const MapView = ({
   return (
     <div className="relative w-full h-full">
       <div ref={mapContainer} className="w-full h-full rounded-lg" />
+      
+      {/* Heatmap Toggle Button */}
+      {showHeatmapToggle && (
+        <div className="absolute top-4 right-4 flex flex-col gap-2">
+          <Button
+            variant={heatmapEnabled ? "default" : "outline"}
+            size="sm"
+            onClick={() => setHeatmapEnabled(!heatmapEnabled)}
+            disabled={loadingHeatmap}
+            className="shadow-lg"
+          >
+            <Flame className={`w-4 h-4 mr-2 ${heatmapEnabled ? "text-orange-300" : ""}`} />
+            {loadingHeatmap ? "Loading..." : heatmapEnabled ? "Hide AQI" : "Show AQI"}
+          </Button>
+          
+          {/* AQI Info Card */}
+          {heatmapEnabled && airQualityData && (
+            <div className="bg-card/95 backdrop-blur-sm rounded-lg shadow-lg px-3 py-2 text-sm">
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-muted-foreground">Air Quality Index</span>
+                <span className={`font-bold text-lg ${getAqiColor(airQualityData.aqi)}`}>
+                  {airQualityData.aqi}
+                </span>
+                <span className="text-xs text-muted-foreground">{airQualityData.category}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      
       {buses.length > 0 && (
         <div className="absolute bottom-4 left-4 bg-card/95 backdrop-blur-sm rounded-lg shadow-lg px-3 py-2 text-sm">
           <div className="flex items-center gap-2">
