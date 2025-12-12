@@ -373,6 +373,132 @@ useEffect(() => {
 
 ### 3.2 Real-time Bus Tracking
 
+#### A. Interactive Map Features
+
+**Live Bus Map with Booking Panel:**
+
+When users click on a live bus marker, a booking panel appears with bus details:
+
+```typescript
+// Component: src/components/dashboard/LiveBusMap.tsx
+
+// Handle bus click to show booking panel
+const handleBusClick = (bus: Bus) => {
+  setSelectedBus(bus);
+};
+
+// Navigate to booking page
+const handleBookNow = () => {
+  if (selectedBus?.route_id) {
+    navigate(`/book/${selectedBus.route_id}`);
+  }
+};
+
+// Booking Panel UI displays:
+// - Bus number and status
+// - Route name
+// - "Book This Bus" button
+```
+
+**Route Stop Markers:**
+
+Clicking a bus displays numbered stop markers along its route:
+
+```typescript
+// Component: src/components/map/MapView.tsx
+
+interface MapViewProps {
+  // ...
+  selectedStops?: { id: string; name: string; lat: number; lng: number; order: number }[];
+  onBusClick?: (bus: BusData) => void;
+}
+
+// Render stop markers when a bus is selected
+useEffect(() => {
+  if (!map || !selectedStops) return;
+  
+  selectedStops.forEach((stop, index) => {
+    const marker = new google.maps.Marker({
+      position: { lat: stop.lat, lng: stop.lng },
+      map: map,
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 12,
+        fillColor: '#22c55e',
+        fillOpacity: 1,
+        strokeColor: '#ffffff',
+        strokeWeight: 2
+      },
+      label: {
+        text: String(index + 1),
+        color: '#ffffff',
+        fontSize: '10px',
+        fontWeight: 'bold'
+      },
+      title: stop.name
+    });
+  });
+}, [map, selectedStops]);
+```
+
+**Air Quality Heatmap Toggle:**
+
+Users can toggle an AQI heatmap overlay based on their location:
+
+```typescript
+// Component: src/components/map/MapView.tsx
+
+// Fetch AQI data and render heatmap
+const loadAirQualityData = async () => {
+  if (!map) return;
+  
+  const center = map.getCenter();
+  const aqiData = await fetchAirQuality(center.lat(), center.lng());
+  
+  // Create heatmap layer
+  const heatmap = new google.maps.visualization.HeatmapLayer({
+    data: [
+      {
+        location: new google.maps.LatLng(center.lat(), center.lng()),
+        weight: aqiData.aqi || 50
+      }
+    ],
+    gradient: [
+      'rgba(0, 255, 0, 0)',    // Good (0-50)
+      'rgba(255, 255, 0, 1)',  // Moderate (51-100)
+      'rgba(255, 126, 0, 1)',  // Unhealthy for Sensitive (101-150)
+      'rgba(255, 0, 0, 1)',    // Unhealthy (151-200)
+      'rgba(143, 63, 151, 1)', // Very Unhealthy (201-300)
+      'rgba(126, 0, 35, 1)'    // Hazardous (301+)
+    ],
+    radius: 100,
+    opacity: 0.6
+  });
+  
+  heatmap.setMap(map);
+};
+
+// Toggle button in UI
+<Button
+  variant="outline"
+  size="icon"
+  onClick={() => setShowHeatmap(!showHeatmap)}
+  className={showHeatmap ? 'bg-orange-500' : ''}
+>
+  <Flame className="h-4 w-4" />
+</Button>
+```
+
+**Feature Summary:**
+
+| Feature | Component | Description |
+|---------|-----------|-------------|
+| Booking Panel | LiveBusMap.tsx | Click bus → Show details → Book |
+| Stop Markers | MapView.tsx | Numbered markers on bus route |
+| AQI Heatmap | MapView.tsx | Toggle environmental overlay |
+
+#### B. Frontend Logic
+
 #### A. Frontend Logic
 
 **Component**: `src/components/dashboard/LiveBusMap.tsx`
