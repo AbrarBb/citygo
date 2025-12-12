@@ -9,6 +9,13 @@ interface BusData {
   status?: string;
 }
 
+interface StopData {
+  lat: number;
+  lng: number;
+  name: string;
+  order?: number;
+}
+
 interface MapViewProps {
   center?: [number, number];
   zoom?: number;
@@ -17,6 +24,7 @@ interface MapViewProps {
     id: string;
     stops: Array<{ lat: number; lng: number; name: string }>;
   }>;
+  selectedStops?: StopData[];
   onBusClick?: (bus: BusData) => void;
 }
 
@@ -27,11 +35,13 @@ const MapView = ({
   zoom = 12, 
   buses = [],
   routes = [],
+  selectedStops = [],
   onBusClick
 }: MapViewProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   const markers = useRef<{ [key: string]: any }>({});
+  const stopMarkers = useRef<any[]>([]);
   const polylines = useRef<any[]>([]);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
   const [mapError, setMapError] = useState(false);
@@ -255,6 +265,56 @@ const MapView = ({
       }
     });
   }, [buses, isMapLoaded]);
+
+  // Draw stop markers for selected bus route
+  useEffect(() => {
+    if (!map.current || !isMapLoaded) return;
+
+    const google = (window as any).google;
+    if (!google?.maps) return;
+
+    // Clear existing stop markers
+    stopMarkers.current.forEach(marker => marker.setMap(null));
+    stopMarkers.current = [];
+
+    if (selectedStops.length === 0) return;
+
+    selectedStops.forEach((stop, index) => {
+      const stopIconSvg = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" fill="#ef4444" stroke="#ffffff" stroke-width="2"/>
+          <text x="12" y="16" text-anchor="middle" fill="#ffffff" font-size="10" font-weight="bold">${index + 1}</text>
+        </svg>
+      `;
+
+      const marker = new google.maps.Marker({
+        position: { lat: stop.lat, lng: stop.lng },
+        map: map.current,
+        title: stop.name || `Stop ${index + 1}`,
+        icon: {
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(stopIconSvg),
+          scaledSize: new google.maps.Size(32, 32),
+          anchor: new google.maps.Point(16, 16),
+        },
+        zIndex: 500,
+      });
+
+      const infoWindow = new google.maps.InfoWindow({
+        content: `
+          <div class="p-2">
+            <h3 class="font-bold text-sm">Stop ${index + 1}</h3>
+            <p class="text-xs text-gray-600">${stop.name || 'Unnamed Stop'}</p>
+          </div>
+        `,
+      });
+
+      marker.addListener("click", () => {
+        infoWindow.open(map.current, marker);
+      });
+
+      stopMarkers.current.push(marker);
+    });
+  }, [selectedStops, isMapLoaded]);
 
   if (mapError) {
     return (
