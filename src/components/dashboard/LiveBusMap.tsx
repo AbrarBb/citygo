@@ -1,13 +1,18 @@
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import MapView from "@/components/map/MapView";
 import { useLiveBuses } from "@/hooks/useLiveBuses";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
+import { Bus, MapPin, X } from "lucide-react";
 
 export const LiveBusMap = () => {
+  const navigate = useNavigate();
   const { buses, loading } = useLiveBuses();
   const [routes, setRoutes] = useState<any[]>([]);
+  const [selectedBus, setSelectedBus] = useState<any>(null);
 
   useEffect(() => {
     fetchRoutes();
@@ -71,9 +76,21 @@ export const LiveBusMap = () => {
         bus_number: bus.bus_number,
         current_location: { lat, lng },
         route_name: bus.routes?.name,
+        route_id: bus.route_id,
+        status: bus.status,
       };
     })
     .filter((b) => b !== null) as any[];
+
+  const handleBusClick = (bus: any) => {
+    setSelectedBus(bus);
+  };
+
+  const handleBookNow = () => {
+    if (selectedBus?.route_id) {
+      navigate(`/book/${selectedBus.route_id}`);
+    }
+  };
 
   console.log("Active buses:", activeBuses);
   console.log("Routes to display:", routes);
@@ -122,13 +139,60 @@ export const LiveBusMap = () => {
           </p>
         </div>
       )}
-      <div className="h-[500px] rounded-lg overflow-hidden border">
+      <div className="relative h-[500px] rounded-lg overflow-hidden border">
         <MapView 
           center={mapCenter}
           zoom={activeBuses.length > 0 ? 14 : 12}
           buses={activeBuses} 
-          routes={routesToDisplay} 
+          routes={routesToDisplay}
+          onBusClick={handleBusClick}
         />
+        
+        {/* Booking Panel */}
+        {selectedBus && (
+          <div className="absolute top-4 right-4 w-72 bg-card/95 backdrop-blur-sm rounded-lg shadow-lg border p-4 animate-in slide-in-from-right-5">
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-primary/10 rounded-full">
+                  <Bus className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h4 className="font-semibold">{selectedBus.bus_number}</h4>
+                  <p className="text-xs text-muted-foreground capitalize">{selectedBus.status || 'Unknown'}</p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => setSelectedBus(null)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            {selectedBus.route_name && (
+              <div className="flex items-center gap-2 mb-4 text-sm">
+                <MapPin className="h-4 w-4 text-muted-foreground" />
+                <span>{selectedBus.route_name}</span>
+              </div>
+            )}
+            
+            <Button 
+              className="w-full bg-gradient-primary"
+              onClick={handleBookNow}
+              disabled={!selectedBus.route_id}
+            >
+              Book This Bus
+            </Button>
+            
+            {!selectedBus.route_id && (
+              <p className="text-xs text-muted-foreground mt-2 text-center">
+                No route assigned to this bus
+              </p>
+            )}
+          </div>
+        )}
       </div>
       <div className="mt-4 flex flex-wrap gap-4 text-sm text-muted-foreground">
         <div className="flex items-center gap-2">
@@ -139,6 +203,7 @@ export const LiveBusMap = () => {
           <div className="w-3 h-3 bg-blue-500 rounded-full" />
           <span>{routesToDisplay.length} route{routesToDisplay.length !== 1 ? "s" : ""} shown</span>
         </div>
+        <p className="text-xs">Click on a bus to book a seat</p>
       </div>
     </Card>
   );
