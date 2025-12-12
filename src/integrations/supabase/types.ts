@@ -542,6 +542,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      complete_journey_bookings: { Args: { p_bus_id: string }; Returns: number }
       get_available_supervisors: {
         Args: never
         Returns: {
