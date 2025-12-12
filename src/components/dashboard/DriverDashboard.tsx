@@ -392,6 +392,13 @@ const DriverDashboard = () => {
       return;
     }
 
+    // Clear all bookings for this bus (mark as completed)
+    await supabase
+      .from("bookings")
+      .update({ booking_status: "completed" })
+      .eq("bus_id", busInfo?.id)
+      .in("booking_status", ["confirmed", "booked", "occupied"]);
+
     // Update bus status to idle and clear supervisor
     await supabase
       .from("buses")
