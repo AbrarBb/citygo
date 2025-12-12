@@ -392,12 +392,15 @@ const DriverDashboard = () => {
       return;
     }
 
-    // Clear all bookings for this bus (mark as completed)
-    await supabase
-      .from("bookings")
-      .update({ booking_status: "completed" })
-      .eq("bus_id", busInfo?.id)
-      .in("booking_status", ["confirmed", "booked", "occupied"]);
+    // Clear all bookings for this bus using the database function
+    const { data: clearedCount, error: clearError } = await supabase
+      .rpc('complete_journey_bookings', { p_bus_id: busInfo?.id });
+    
+    if (clearError) {
+      console.error('Error clearing bookings:', clearError);
+    } else {
+      console.log(`Cleared ${clearedCount} bookings`);
+    }
 
     // Update bus status to idle and clear supervisor
     await supabase
