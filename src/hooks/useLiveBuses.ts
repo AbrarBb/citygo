@@ -6,6 +6,7 @@ interface Bus {
   bus_number: string;
   current_location: any;
   route_id: string | null;
+  status: string | null;
   routes?: { name: string };
 }
 
@@ -41,7 +42,7 @@ export const useLiveBuses = () => {
     try {
       const { data, error } = await supabase
         .from("buses")
-        .select("id, bus_number, current_location, route_id, routes(name)")
+        .select("id, bus_number, current_location, route_id, status, routes(name)")
         .eq("status", "active");
 
       if (error) throw error;

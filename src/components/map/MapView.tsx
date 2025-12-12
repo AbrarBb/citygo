@@ -1,19 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 
+interface BusData {
+  id: string;
+  bus_number: string;
+  current_location: { lat: number; lng: number };
+  route_name?: string;
+  route_id?: string;
+  status?: string;
+}
+
 interface MapViewProps {
   center?: [number, number];
   zoom?: number;
-  buses?: Array<{
-    id: string;
-    bus_number: string;
-    current_location: { lat: number; lng: number };
-    route_name?: string;
-    status?: string;
-  }>;
+  buses?: BusData[];
   routes?: Array<{
     id: string;
     stops: Array<{ lat: number; lng: number; name: string }>;
   }>;
+  onBusClick?: (bus: BusData) => void;
 }
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyANU6LkHDgyHNjIIYfQV3YsnQ9Do_5uMGE";
@@ -22,7 +26,8 @@ const MapView = ({
   center = [23.8103, 90.4125], // Dhaka, Bangladesh [lat, lng]
   zoom = 12, 
   buses = [],
-  routes = []
+  routes = [],
+  onBusClick
 }: MapViewProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
@@ -240,6 +245,9 @@ const MapView = ({
 
           marker.addListener("click", () => {
             infoWindow.open(map.current, marker);
+            if (onBusClick) {
+              onBusClick(bus);
+            }
           });
 
           markers.current[bus.id] = marker;
