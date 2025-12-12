@@ -425,6 +425,38 @@ const DriverDashboard = () => {
     });
   };
 
+  const handleArrivedAtStop = async (stopName: string) => {
+    if (!busInfo?.id) return;
+
+    const { data: releasedCount, error } = await supabase
+      .rpc('release_bookings_at_stop', { 
+        p_bus_id: busInfo.id, 
+        p_stop_name: stopName 
+      });
+
+    if (error) {
+      console.error('Error releasing bookings:', error);
+      toast({
+        title: "Error",
+        description: "Failed to release bookings at this stop",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (releasedCount > 0) {
+      toast({
+        title: `Arrived at ${stopName}`,
+        description: `${releasedCount} passenger(s) dropped off, seats now available`,
+      });
+    } else {
+      toast({
+        title: `Arrived at ${stopName}`,
+        description: "No passengers dropping off at this stop",
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <motion.div
@@ -585,6 +617,26 @@ const DriverDashboard = () => {
               isOffRoute={routeProgress.isOffRoute}
               distanceToNextStop={routeProgress.distanceToNextStop}
             />
+            {/* Stop Arrival Buttons */}
+            <Card className="mt-4 p-4">
+              <h4 className="font-semibold mb-3 flex items-center gap-2">
+                <MapPin className="w-4 h-4" />
+                Announce Stop Arrival
+              </h4>
+              <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                {routeStops.map((stop, index) => (
+                  <Button
+                    key={index}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleArrivedAtStop(stop.name)}
+                    className="text-xs justify-start"
+                  >
+                    {index + 1}. {stop.name}
+                  </Button>
+                ))}
+              </div>
+            </Card>
           </motion.div>
         )}
       </div>

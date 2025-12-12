@@ -5,15 +5,23 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { CreditCard, Wallet, Calendar } from "lucide-react";
+import { CreditCard, Wallet, MapPin } from "lucide-react";
 import { z } from "zod";
+
+interface RouteStop {
+  name: string;
+  lat: number;
+  lng: number;
+}
 
 const bookingSchema = z.object({
   seatNo: z.number().min(1).max(40),
   paymentMethod: z.enum(["rapid_card", "online"]),
+  dropStop: z.string().min(1),
 });
 
 const Book = () => {
@@ -22,7 +30,9 @@ const Book = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [route, setRoute] = useState<any>(null);
+  const [stops, setStops] = useState<RouteStop[]>([]);
   const [selectedSeat, setSelectedSeat] = useState<number | null>(null);
+  const [selectedDropStop, setSelectedDropStop] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<string>("rapid_card");
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<any>(null);
@@ -48,6 +58,12 @@ const Book = () => {
 
       if (error) throw error;
       setRoute(data);
+      
+      // Parse stops from route
+      if (data?.stops) {
+        const parsedStops = Array.isArray(data.stops) ? data.stops : [];
+        setStops(parsedStops as unknown as RouteStop[]);
+      }
     } catch (error) {
       console.error("Error fetching route:", error);
       toast({
@@ -111,13 +127,14 @@ const Book = () => {
   };
 
   const handleBooking = async () => {
-    if (!selectedSeat || !route || !user) return;
+    if (!selectedSeat || !route || !user || !selectedDropStop) return;
 
     try {
       // Validate input
       bookingSchema.parse({
         seatNo: selectedSeat,
         paymentMethod: paymentMethod as any,
+        dropStop: selectedDropStop,
       });
 
       setLoading(true);
@@ -150,7 +167,7 @@ const Book = () => {
         return;
       }
 
-      // Create booking
+      // Create booking with drop stop
       const { data: booking, error: bookingError } = await supabase
         .from("bookings")
         .insert({
@@ -164,6 +181,7 @@ const Book = () => {
           booking_status: "confirmed",
           co2_saved: co2Saved,
           travel_date: new Date().toISOString(),
+          drop_stop: selectedDropStop,
         })
         .select()
         .single();
@@ -282,6 +300,25 @@ const Book = () => {
                   );
                 })}
               </div>
+              {/* Drop Stop Selection */}
+              <div className="mt-6">
+                <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-primary" />
+                  Select Drop Stop
+                </h4>
+                <Select value={selectedDropStop} onValueChange={setSelectedDropStop}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose your drop-off stop" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {stops.map((stop, index) => (
+                      <SelectItem key={index} value={stop.name}>
+                        {index + 1}. {stop.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </Card>
 
             <Card className="p-6">
@@ -328,7 +365,7 @@ const Book = () => {
 
               <Button
                 onClick={handleBooking}
-                disabled={!selectedSeat || loading}
+                disabled={!selectedSeat || !selectedDropStop || loading}
                 className="w-full mt-6 bg-gradient-primary"
                 size="lg"
               >
