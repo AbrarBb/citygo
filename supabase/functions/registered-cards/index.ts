@@ -62,6 +62,86 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Check if requesting a single card (path parameter or query parameter)
+    const url = new URL(req.url);
+    const pathParts = url.pathname.split('/').filter(Boolean);
+    const lastPathPart = pathParts[pathParts.length - 1];
+    
+    // Check for card_id in path (e.g., /registered-cards/RC-d4a290fc)
+    const pathCardId = lastPathPart && lastPathPart.startsWith('RC-') ? lastPathPart : null;
+    // Check for card_id in query params
+    const queryCardId = url.searchParams.get('card_id') || url.searchParams.get('nfc_id');
+    
+    const requestedCardId = pathCardId || queryCardId;
+
+    // If requesting a single card
+    if (requestedCardId) {
+      console.log(`Looking up single card: ${requestedCardId}`);
+      
+      // Normalize card ID (handle case sensitivity)
+      const normalizedCardId = requestedCardId.toUpperCase().replace('RC-', 'RC-');
+      
+      // Try exact match first, then case-insensitive
+      let profile = null;
+      const { data: exactMatch } = await supabaseAdmin
+        .from('profiles')
+        .select('card_id, full_name, card_balance, created_at, updated_at, user_id')
+        .eq('card_id', requestedCardId)
+        .maybeSingle();
+      
+      if (exactMatch) {
+        profile = exactMatch;
+      } else {
+        // Try case-insensitive match using ilike
+        const { data: ilikeMatch } = await supabaseAdmin
+          .from('profiles')
+          .select('card_id, full_name, card_balance, created_at, updated_at, user_id')
+          .ilike('card_id', requestedCardId)
+          .maybeSingle();
+        profile = ilikeMatch;
+      }
+
+      if (!profile) {
+        console.log(`Card not found: ${requestedCardId}`);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Card not registered',
+            message: 'Card not registered. Please register your card first.'
+          }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Get last used time for this card
+      const { data: lastLog } = await supabaseAdmin
+        .from('nfc_logs')
+        .select('tap_in_time, tap_out_time')
+        .eq('card_id', profile.card_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const lastUsed = lastLog ? (lastLog.tap_out_time || lastLog.tap_in_time) : null;
+
+      console.log(`Found card: ${profile.card_id}, passenger: ${profile.full_name}`);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          card_id: profile.card_id,
+          nfc_id: profile.card_id, // Alternative field name
+          passenger_name: profile.full_name,
+          balance: profile.card_balance || 0,
+          status: 'active',
+          registered_at: profile.created_at,
+          last_used: lastUsed
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Fetch all registered cards
     const { data: profiles, error: profilesError } = await supabaseAdmin
       .from('profiles')
       .select('card_id, full_name, card_balance, created_at, updated_at')
@@ -104,6 +184,7 @@ serve(async (req) => {
     // Transform to expected format
     const cards = (profiles || []).map(profile => ({
       card_id: profile.card_id,
+      nfc_id: profile.card_id, // Alternative field name
       passenger_name: profile.full_name,
       balance: profile.card_balance || 0,
       status: 'active',

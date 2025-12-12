@@ -60,7 +60,9 @@ serve(async (req) => {
       ticket_type = "single",
       location,
       timestamp,
-      offline_id 
+      offline_id,
+      seat_number,
+      notes
     } = await req.json();
 
     if (!bus_id || !fare) {
@@ -70,7 +72,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[manual-ticket] Creating ticket for bus: ${bus_id}, passengers: ${passenger_count}`);
+    console.log(`[manual-ticket] Creating ticket for bus: ${bus_id}, passengers: ${passenger_count}, seat: ${seat_number || 'none'}`);
 
     // Check for duplicate offline_id
     if (offline_id) {
@@ -95,10 +97,10 @@ serve(async (req) => {
       }
     }
 
-    // Verify bus exists
+    // Verify bus exists and get route_id
     const { data: bus, error: busError } = await supabase
       .from("buses")
-      .select("id, bus_number")
+      .select("id, bus_number, route_id")
       .eq("id", bus_id)
       .maybeSingle();
 
@@ -139,6 +141,39 @@ serve(async (req) => {
 
     console.log(`[manual-ticket] Ticket created: ${ticket.id}`);
 
+    // If seat_number is provided, create a booking for that seat
+    let booking = null;
+    if (seat_number && bus.route_id) {
+      const { data: newBooking, error: bookingError } = await supabase
+        .from("bookings")
+        .insert({
+          bus_id,
+          route_id: bus.route_id,
+          user_id: supervisorId, // Use supervisor as proxy user for manual tickets
+          seat_no: seat_number,
+          fare,
+          booking_status: "booked",
+          payment_method: "cash",
+          payment_status: "completed",
+          travel_date: issuedAt.toISOString(),
+        })
+        .select("id, seat_no, booking_status")
+        .single();
+
+      if (bookingError) {
+        console.error(`[manual-ticket] Booking error: ${bookingError.message}`);
+        // Don't fail the ticket if booking fails, just log it
+      } else {
+        booking = {
+          id: newBooking.id,
+          seat_number: newBooking.seat_no,
+          status: newBooking.booking_status,
+          bus_id,
+        };
+        console.log(`[manual-ticket] Booking created for seat ${seat_number}: ${newBooking.id}`);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -149,6 +184,7 @@ serve(async (req) => {
         total_fare: ticket.fare,
         payment_method,
         issued_at: issuedAt.toISOString(),
+        booking,
         message: `Ticket issued for ${passenger_count} passenger(s). Total: ৳${fare}`,
       }),
       { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } }
