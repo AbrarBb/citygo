@@ -103,18 +103,41 @@ serve(async (req) => {
       }
     }
 
-    // Find active tap-in for this card on this bus
-    const { data: activeTapIn, error: tapError } = await supabase
+    // Find active tap-in for this card on this bus (case-insensitive)
+    // First try exact match
+    let activeTapIn = null;
+    
+    const { data: exactTapIn } = await supabase
       .from("nfc_logs")
-      .select("id, tap_in_time, tap_in_location, user_id")
+      .select("id, tap_in_time, tap_in_location, user_id, card_id")
       .eq("card_id", card_id)
       .eq("bus_id", bus_id)
       .is("tap_out_time", null)
       .order("tap_in_time", { ascending: false })
       .limit(1)
       .maybeSingle();
+    
+    if (exactTapIn) {
+      activeTapIn = exactTapIn;
+    } else {
+      // Try case-insensitive match
+      const { data: ilikeTapIn } = await supabase
+        .from("nfc_logs")
+        .select("id, tap_in_time, tap_in_location, user_id, card_id")
+        .ilike("card_id", card_id)
+        .eq("bus_id", bus_id)
+        .is("tap_out_time", null)
+        .order("tap_in_time", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (ilikeTapIn) {
+        activeTapIn = ilikeTapIn;
+        console.log(`[nfc-tap-out] Found tap via case-insensitive match: ${ilikeTapIn.card_id}`);
+      }
+    }
 
-    if (tapError || !activeTapIn) {
+    if (!activeTapIn) {
       console.log(`[nfc-tap-out] No active journey found for card: ${card_id}`);
       return new Response(
         JSON.stringify({ 

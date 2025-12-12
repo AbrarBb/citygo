@@ -85,32 +85,54 @@ serve(async (req) => {
       }
     }
 
-    // Find user profile by card_id
-    const { data: profile, error: profileError } = await supabase
+    // Find user profile by card_id (case-insensitive)
+    let profile = null;
+    
+    // Try exact match first
+    const { data: exactProfile } = await supabase
       .from("profiles")
-      .select("id, user_id, full_name, card_balance")
+      .select("id, user_id, full_name, card_balance, card_id")
       .eq("card_id", card_id)
       .maybeSingle();
+    
+    if (exactProfile) {
+      profile = exactProfile;
+    } else {
+      // Try case-insensitive match
+      const { data: ilikeProfile } = await supabase
+        .from("profiles")
+        .select("id, user_id, full_name, card_balance, card_id")
+        .ilike("card_id", card_id)
+        .maybeSingle();
+      
+      if (ilikeProfile) {
+        profile = ilikeProfile;
+        console.log(`[nfc-tap-in] Found card via case-insensitive match: ${ilikeProfile.card_id}`);
+      }
+    }
 
-    if (profileError || !profile) {
+    if (!profile) {
       console.log(`[nfc-tap-in] Card not found: ${card_id}`);
       return new Response(
         JSON.stringify({ error: "Card not registered", code: "CARD_NOT_FOUND" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    
+    // Use the actual card_id from the database for consistency
+    const actualCardId = profile.card_id;
 
     // Check if user already has an active tap-in on this bus (no tap-out yet)
     const { data: activeTapIn } = await supabase
       .from("nfc_logs")
       .select("id")
-      .eq("card_id", card_id)
+      .eq("card_id", actualCardId)
       .eq("bus_id", bus_id)
       .is("tap_out_time", null)
       .maybeSingle();
 
     if (activeTapIn) {
-      console.log(`[nfc-tap-in] Card already has active journey: ${card_id}`);
+      console.log(`[nfc-tap-in] Card already has active journey: ${actualCardId}`);
       return new Response(
         JSON.stringify({ 
           error: "Card already tapped in. Please tap out first.",
@@ -142,7 +164,7 @@ serve(async (req) => {
     const { data: newLog, error: insertError } = await supabase
       .from("nfc_logs")
       .insert({
-        card_id,
+        card_id: actualCardId, // Use the normalized card_id from database
         bus_id,
         user_id: profile.user_id,
         supervisor_id: supervisorId,
