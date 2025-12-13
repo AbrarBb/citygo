@@ -369,60 +369,80 @@ const DriverDashboard = () => {
   };
 
   const handleEndRoute = async () => {
-    if (!currentTrip || !location) return;
+    if (!busInfo || !user || !currentTrip) return;
 
-    const { error } = await supabase
-      .from("trips")
-      .update({
-        end_time: new Date().toISOString(),
-        end_location: {
-          lat: location.coords.latitude,
-          lng: location.coords.longitude,
-        },
-        status: "completed",
-      })
-      .eq("id", currentTrip.id);
+    try {
+      // End any active trip for this bus and driver
+      const { error: tripError } = await supabase
+        .from("trips")
+        .update({
+          end_time: new Date().toISOString(),
+          end_location: location
+            ? {
+                lat: location.coords.latitude,
+                lng: location.coords.longitude,
+              }
+            : null,
+          status: "completed",
+        })
+        .eq("bus_id", busInfo.id)
+        .eq("driver_id", user.id)
+        .eq("status", "active");
 
-    if (error) {
+      if (tripError) {
+        console.error("Error ending trip:", tripError);
+        toast({
+          title: "Error",
+          description: "Failed to end trip",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Clear all bookings for this bus using the database function
+      const { data: clearedCount, error: clearError } = await supabase
+        .rpc("complete_journey_bookings", { p_bus_id: busInfo.id });
+
+      if (clearError) {
+        console.error("Error clearing bookings:", clearError);
+      } else {
+        console.log(`Cleared ${clearedCount} bookings`);
+      }
+
+      // Update bus status to idle, clear supervisor and last location
+      const { error: busError } = await supabase
+        .from("buses")
+        .update({
+          status: "idle",
+          supervisor_id: null,
+          current_location: null,
+        })
+        .eq("id", busInfo.id);
+
+      if (busError) {
+        console.error("Error updating bus status:", busError);
+      }
+
+      await stopTracking();
+      setRouteActive(false);
+      setRoutePaused(false);
+      setCurrentTrip(null);
+      setSelectedSupervisorId("");
+      fetchTodayStats();
+      fetchAvailableSupervisors();
+
+      toast({
+        title: "Route Ended",
+        description: "Trip completed successfully",
+      });
+    } catch (err) {
+      console.error("Unexpected error ending route:", err);
       toast({
         title: "Error",
-        description: "Failed to end trip",
+        description: "Something went wrong while ending the trip",
         variant: "destructive",
       });
-      return;
     }
-
-    // Clear all bookings for this bus using the database function
-    const { data: clearedCount, error: clearError } = await supabase
-      .rpc('complete_journey_bookings', { p_bus_id: busInfo?.id });
-    
-    if (clearError) {
-      console.error('Error clearing bookings:', clearError);
-    } else {
-      console.log(`Cleared ${clearedCount} bookings`);
-    }
-
-    // Update bus status to idle and clear supervisor
-    await supabase
-      .from("buses")
-      .update({ 
-        status: "idle",
-        supervisor_id: null 
-      })
-      .eq("id", busInfo?.id);
-
-    stopTracking();
-    setRouteActive(false);
-    setRoutePaused(false);
-    setCurrentTrip(null);
-    setSelectedSupervisorId("");
-    fetchTodayStats();
-    fetchAvailableSupervisors();
-
-    toast({
-      title: "Route Ended",
-      description: "Trip completed successfully",
-    });
   };
 
   const handleArrivedAtStop = async (stopName: string) => {
