@@ -33,14 +33,16 @@ interface Driver {
   full_name: string;
 }
 
+const NONE_VALUE = "__none__";
+
 const AdminBuses = () => {
   const [buses, setBuses] = useState<BusData[]>([]);
   const [supervisors, setSupervisors] = useState<Supervisor[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedBus, setSelectedBus] = useState<BusData | null>(null);
-  const [selectedSupervisor, setSelectedSupervisor] = useState<string>("");
-  const [selectedDriver, setSelectedDriver] = useState<string>("");
+  const [selectedSupervisor, setSelectedSupervisor] = useState<string>(NONE_VALUE);
+  const [selectedDriver, setSelectedDriver] = useState<string>(NONE_VALUE);
   const [updating, setUpdating] = useState(false);
   const [assignType, setAssignType] = useState<"supervisor" | "driver">("supervisor");
 
@@ -141,20 +143,21 @@ const AdminBuses = () => {
     setUpdating(true);
 
     try {
+      const supervisorId = selectedSupervisor === NONE_VALUE ? null : selectedSupervisor;
       const { error } = await supabase
         .from("buses")
-        .update({ supervisor_id: selectedSupervisor || null })
+        .update({ supervisor_id: supervisorId })
         .eq("id", selectedBus.id);
 
       if (error) throw error;
 
       toast.success(
-        selectedSupervisor
+        supervisorId
           ? "Supervisor assigned successfully"
           : "Supervisor removed from bus"
       );
       setSelectedBus(null);
-      setSelectedSupervisor("");
+      setSelectedSupervisor(NONE_VALUE);
       fetchData();
     } catch (error) {
       console.error("Error assigning supervisor:", error);
@@ -169,20 +172,21 @@ const AdminBuses = () => {
     setUpdating(true);
 
     try {
+      const driverId = selectedDriver === NONE_VALUE ? null : selectedDriver;
       const { error } = await supabase
         .from("buses")
-        .update({ driver_id: selectedDriver || null })
+        .update({ driver_id: driverId })
         .eq("id", selectedBus.id);
 
       if (error) throw error;
 
       toast.success(
-        selectedDriver
+        driverId
           ? "Driver assigned successfully"
           : "Driver removed from bus"
       );
       setSelectedBus(null);
-      setSelectedDriver("");
+      setSelectedDriver(NONE_VALUE);
       fetchData();
     } catch (error) {
       console.error("Error assigning driver:", error);
@@ -287,7 +291,7 @@ const AdminBuses = () => {
                           size="sm"
                           onClick={() => {
                             setSelectedBus(bus);
-                            setSelectedDriver(bus.driver_id || "");
+                            setSelectedDriver(bus.driver_id || NONE_VALUE);
                             setAssignType("driver");
                           }}
                         >
@@ -312,7 +316,7 @@ const AdminBuses = () => {
                               <SelectValue placeholder="Select driver" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">None (Remove)</SelectItem>
+                              <SelectItem value={NONE_VALUE}>None (Remove)</SelectItem>
                               {drivers.map((d) => (
                                 <SelectItem key={d.user_id} value={d.user_id}>
                                   {d.full_name}
@@ -344,7 +348,7 @@ const AdminBuses = () => {
                           size="sm"
                           onClick={() => {
                             setSelectedBus(bus);
-                            setSelectedSupervisor(bus.supervisor_id || "");
+                            setSelectedSupervisor(bus.supervisor_id || NONE_VALUE);
                             setAssignType("supervisor");
                           }}
                         >
@@ -369,7 +373,7 @@ const AdminBuses = () => {
                               <SelectValue placeholder="Select supervisor" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">None (Remove)</SelectItem>
+                              <SelectItem value={NONE_VALUE}>None (Remove)</SelectItem>
                               {supervisors.map((s) => (
                                 <SelectItem key={s.user_id} value={s.user_id}>
                                   {s.full_name}
