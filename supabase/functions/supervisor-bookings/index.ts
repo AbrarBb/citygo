@@ -58,10 +58,10 @@ serve(async (req) => {
 
     console.log(`Fetching bookings for supervisor ${user.id}, bus_id: ${busId}, date: ${date}`);
 
-    // Get supervisor's assigned bus
+    // Get supervisor's assigned bus with route_id
     const { data: assignedBus } = await supabaseClient
       .from('buses')
-      .select('id, bus_number, capacity')
+      .select('id, bus_number, capacity, route_id')
       .eq('supervisor_id', user.id)
       .single();
 
@@ -86,13 +86,16 @@ serve(async (req) => {
       });
     }
 
+    console.log(`Bus ${assignedBus.bus_number} current route_id: ${assignedBus.route_id}`);
+
     // Fetch bookings - only show 'confirmed' status (active bookings)
-    // Note: 'completed' and 'cancelled' are excluded as they represent past/inactive bookings
+    // Filter by current route_id to exclude bookings from previous routes
     let query = supabaseClient
       .from('bookings')
       .select(`
         id,
         bus_id,
+        route_id,
         seat_no,
         booking_status,
         booking_date,
@@ -106,6 +109,12 @@ serve(async (req) => {
       .eq('bus_id', assignedBus.id)
       .eq('booking_status', 'confirmed')
       .order('seat_no', { ascending: true });
+
+    // CRITICAL: Filter by route_id to only show bookings for current route
+    if (assignedBus.route_id) {
+      query = query.eq('route_id', assignedBus.route_id);
+      console.log(`Filtering bookings by route_id: ${assignedBus.route_id}`);
+    }
 
     // Only filter by travel_date if explicitly provided by app
     if (date) {
@@ -157,6 +166,7 @@ serve(async (req) => {
       return {
         id: booking.id,
         bus_id: booking.bus_id,
+        route_id: booking.route_id, // Include route_id for mobile app filtering
         seat_number: booking.seat_no,
         passenger_name: profile.full_name,
         card_id: profile.card_id,
@@ -174,6 +184,7 @@ serve(async (req) => {
       success: true,
       bus_id: assignedBus.id,
       bus_number: assignedBus.bus_number,
+      route_id: assignedBus.route_id, // Include current route_id for mobile app
       total_seats: totalSeats,
       available_seats: availableSeats,
       booked_seats: bookedSeats,
