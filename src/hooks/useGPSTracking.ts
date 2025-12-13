@@ -9,10 +9,14 @@ export const useGPSTracking = (busId?: string, updateInterval: number = 5000) =>
   const [lastMoveTime, setLastMoveTime] = useState<number>(Date.now());
   const [isIdle, setIsIdle] = useState(false);
   const lastLocationRef = useRef<{ lat: number; lng: number } | null>(null);
+  const stoppedRef = useRef(false); // Track if tracking was stopped to prevent race conditions
   const { toast } = useToast();
 
   useEffect(() => {
     if (!isTracking || !busId) return;
+
+    // Reset the stopped flag when starting tracking
+    stoppedRef.current = false;
 
     if (!navigator.geolocation) {
       setError("Geolocation is not supported by your browser");
@@ -22,6 +26,9 @@ export const useGPSTracking = (busId?: string, updateInterval: number = 5000) =>
     let updateTimeoutId: NodeJS.Timeout;
 
     const updateLocation = async (position: GeolocationPosition) => {
+      // Don't update if tracking was stopped (prevents race condition)
+      if (stoppedRef.current) return;
+
       setLocation(position);
       setError(null);
 
@@ -52,26 +59,28 @@ export const useGPSTracking = (busId?: string, updateInterval: number = 5000) =>
 
       lastLocationRef.current = { lat: currentLat, lng: currentLng };
 
-      // Update bus location in database
-      try {
-        const { error } = await supabase
-          .from("buses")
-          .update({
-            current_location: {
-              lat: currentLat,
-              lng: currentLng,
-              accuracy: position.coords.accuracy,
-              timestamp: new Date().toISOString(),
-              speed: position.coords.speed || 0,
-              heading: position.coords.heading || 0,
-            },
-            status: isIdle ? "idle" : "active",
-          })
-          .eq("id", busId);
+      // Update bus location in database (only if not stopped)
+      if (!stoppedRef.current) {
+        try {
+          const { error } = await supabase
+            .from("buses")
+            .update({
+              current_location: {
+                lat: currentLat,
+                lng: currentLng,
+                accuracy: position.coords.accuracy,
+                timestamp: new Date().toISOString(),
+                speed: position.coords.speed || 0,
+                heading: position.coords.heading || 0,
+              },
+              status: isIdle ? "idle" : "active",
+            })
+            .eq("id", busId);
 
-        if (error) throw error;
-      } catch (err) {
-        console.error("Error updating location:", err);
+          if (error) throw error;
+        } catch (err) {
+          console.error("Error updating location:", err);
+        }
       }
     };
 
@@ -115,19 +124,28 @@ export const useGPSTracking = (busId?: string, updateInterval: number = 5000) =>
   };
 
   const startTracking = () => {
+    stoppedRef.current = false;
     setIsTracking(true);
     setLastMoveTime(Date.now());
     setIsIdle(false);
   };
 
   const stopTracking = async () => {
+    // Set stopped flag FIRST to prevent any pending GPS updates
+    stoppedRef.current = true;
     setIsTracking(false);
     setIsIdle(false);
     
-    // Update bus status to idle when stopping
+    // Update bus status to idle when stopping - this is the final state
     if (busId) {
       try {
-        await supabase.from("buses").update({ status: "idle" }).eq("id", busId);
+        await supabase
+          .from("buses")
+          .update({ 
+            status: "idle",
+            current_location: null // Clear location so bus disappears from maps
+          })
+          .eq("id", busId);
       } catch (err) {
         console.error("Error updating bus status:", err);
       }
