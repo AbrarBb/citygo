@@ -145,13 +145,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    toast({
-      title: "Logged out",
-      description: "You have been logged out successfully",
-    });
-  };
+    try {
+      const { error } = await supabase.auth.signOut({ scope: 'global' });
 
+      if (error && error.code !== "session_not_found") {
+        throw error;
+      }
+    } catch (error: any) {
+      console.error("Error during sign out:", error);
+      // Even if the backend session is missing, force local logout
+    } finally {
+      setSession(null);
+      setUser(null);
+      setRole(null);
+
+      toast({
+        title: "Logged out",
+        description: "You have been logged out successfully",
+      });
+    }
+  };
   return (
     <AuthContext.Provider
       value={{

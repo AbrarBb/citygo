@@ -305,12 +305,24 @@ const DriverDashboard = () => {
       return;
     }
 
-    // Update bus status to active
+    const effectiveRouteId = selectedRouteId || busInfo.route_id || busInfo.routes?.id;
+
+    if (!effectiveRouteId) {
+      toast({
+        title: "Route Required",
+        description: "Please select a route before starting the journey",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Update bus status, supervisor and route
     await supabase
       .from("buses")
-      .update({ 
+      .update({
         status: "active",
-        supervisor_id: selectedSupervisorId 
+        supervisor_id: selectedSupervisorId,
+        route_id: effectiveRouteId,
       })
       .eq("id", busInfo.id);
 
@@ -319,7 +331,7 @@ const DriverDashboard = () => {
       .insert({
         bus_id: busInfo.id,
         driver_id: user.id,
-        route_id: busInfo.routes?.id,
+        route_id: effectiveRouteId,
         start_location: {
           lat: location.coords.latitude,
           lng: location.coords.longitude,
@@ -348,7 +360,6 @@ const DriverDashboard = () => {
       description: "GPS tracking is now active. Supervisor notified.",
     });
   };
-
   const handlePauseRoute = async () => {
     if (!currentTrip) return;
 
