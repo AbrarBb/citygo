@@ -28,13 +28,21 @@ interface Supervisor {
   full_name: string;
 }
 
+interface Driver {
+  user_id: string;
+  full_name: string;
+}
+
 const AdminBuses = () => {
   const [buses, setBuses] = useState<BusData[]>([]);
   const [supervisors, setSupervisors] = useState<Supervisor[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedBus, setSelectedBus] = useState<BusData | null>(null);
   const [selectedSupervisor, setSelectedSupervisor] = useState<string>("");
+  const [selectedDriver, setSelectedDriver] = useState<string>("");
   const [updating, setUpdating] = useState(false);
+  const [assignType, setAssignType] = useState<"supervisor" | "driver">("supervisor");
 
   useEffect(() => {
     fetchData();
@@ -54,12 +62,32 @@ const AdminBuses = () => {
 
   const fetchData = async () => {
     try {
-      const [busesRes, supervisorsRes] = await Promise.all([
+      // Fetch buses, supervisors, and drivers (users with driver role)
+      const [busesRes, supervisorsRes, driversRes] = await Promise.all([
         supabase.from("buses").select("*").order("created_at", { ascending: false }),
         supabase.rpc("get_available_supervisors"),
+        // Get all users with driver role
+        supabase
+          .from("user_roles")
+          .select("user_id")
+          .eq("role", "driver"),
       ]);
 
       if (busesRes.error) throw busesRes.error;
+
+      // Fetch driver profiles
+      let driversList: Driver[] = [];
+      if (driversRes.data && driversRes.data.length > 0) {
+        const driverIds = driversRes.data.map(d => d.user_id);
+        const { data: driverProfiles } = await supabase
+          .from("profiles")
+          .select("user_id, full_name")
+          .in("user_id", driverIds);
+        driversList = (driverProfiles || []).map(p => ({
+          user_id: p.user_id,
+          full_name: p.full_name
+        }));
+      }
 
       // Enrich buses with names
       const enriched = await Promise.all(
@@ -99,6 +127,7 @@ const AdminBuses = () => {
 
       setBuses(enriched);
       setSupervisors(supervisorsRes.data || []);
+      setDrivers(driversList);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error("Failed to load buses");
@@ -130,6 +159,34 @@ const AdminBuses = () => {
     } catch (error) {
       console.error("Error assigning supervisor:", error);
       toast.error("Failed to assign supervisor");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleAssignDriver = async () => {
+    if (!selectedBus) return;
+    setUpdating(true);
+
+    try {
+      const { error } = await supabase
+        .from("buses")
+        .update({ driver_id: selectedDriver || null })
+        .eq("id", selectedBus.id);
+
+      if (error) throw error;
+
+      toast.success(
+        selectedDriver
+          ? "Driver assigned successfully"
+          : "Driver removed from bus"
+      );
+      setSelectedBus(null);
+      setSelectedDriver("");
+      fetchData();
+    } catch (error) {
+      console.error("Error assigning driver:", error);
+      toast.error("Failed to assign driver");
     } finally {
       setUpdating(false);
     }
@@ -221,60 +278,121 @@ const AdminBuses = () => {
                 </TableCell>
                 <TableCell>{bus.capacity || 40}</TableCell>
                 <TableCell>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedBus(bus);
-                          setSelectedSupervisor(bus.supervisor_id || "");
-                        }}
-                      >
-                        Assign Supervisor
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Assign Supervisor - {bus.bus_number}</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4 mt-4">
-                        {bus.supervisor_name && (
-                          <p className="text-sm text-muted-foreground">
-                            Current: <span className="font-medium text-foreground">{bus.supervisor_name}</span>
-                          </p>
-                        )}
-                        <Select
-                          value={selectedSupervisor}
-                          onValueChange={setSelectedSupervisor}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select supervisor" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="">None (Remove)</SelectItem>
-                            {supervisors.map((s) => (
-                              <SelectItem key={s.user_id} value={s.user_id}>
-                                {s.full_name}
-                              </SelectItem>
-                            ))}
-                            {bus.supervisor_id && !supervisors.find(s => s.user_id === bus.supervisor_id) && (
-                              <SelectItem value={bus.supervisor_id}>
-                                {bus.supervisor_name} (Current)
-                              </SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
+                  <div className="flex gap-2">
+                    {/* Assign Driver Dialog */}
+                    <Dialog>
+                      <DialogTrigger asChild>
                         <Button
-                          className="w-full"
-                          onClick={handleAssignSupervisor}
-                          disabled={updating}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedBus(bus);
+                            setSelectedDriver(bus.driver_id || "");
+                            setAssignType("driver");
+                          }}
                         >
-                          {updating ? "Updating..." : "Save Assignment"}
+                          Assign Driver
                         </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Assign Driver - {bus.bus_number}</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 mt-4">
+                          {bus.driver_name && (
+                            <p className="text-sm text-muted-foreground">
+                              Current: <span className="font-medium text-foreground">{bus.driver_name}</span>
+                            </p>
+                          )}
+                          <Select
+                            value={selectedDriver}
+                            onValueChange={setSelectedDriver}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select driver" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">None (Remove)</SelectItem>
+                              {drivers.map((d) => (
+                                <SelectItem key={d.user_id} value={d.user_id}>
+                                  {d.full_name}
+                                </SelectItem>
+                              ))}
+                              {bus.driver_id && !drivers.find(d => d.user_id === bus.driver_id) && (
+                                <SelectItem value={bus.driver_id}>
+                                  {bus.driver_name} (Current)
+                                </SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            className="w-full"
+                            onClick={handleAssignDriver}
+                            disabled={updating}
+                          >
+                            {updating ? "Updating..." : "Assign Driver"}
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+
+                    {/* Assign Supervisor Dialog */}
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedBus(bus);
+                            setSelectedSupervisor(bus.supervisor_id || "");
+                            setAssignType("supervisor");
+                          }}
+                        >
+                          Assign Supervisor
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Assign Supervisor - {bus.bus_number}</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 mt-4">
+                          {bus.supervisor_name && (
+                            <p className="text-sm text-muted-foreground">
+                              Current: <span className="font-medium text-foreground">{bus.supervisor_name}</span>
+                            </p>
+                          )}
+                          <Select
+                            value={selectedSupervisor}
+                            onValueChange={setSelectedSupervisor}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select supervisor" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">None (Remove)</SelectItem>
+                              {supervisors.map((s) => (
+                                <SelectItem key={s.user_id} value={s.user_id}>
+                                  {s.full_name}
+                                </SelectItem>
+                              ))}
+                              {bus.supervisor_id && !supervisors.find(s => s.user_id === bus.supervisor_id) && (
+                                <SelectItem value={bus.supervisor_id}>
+                                  {bus.supervisor_name} (Current)
+                                </SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            className="w-full"
+                            onClick={handleAssignSupervisor}
+                            disabled={updating}
+                          >
+                            {updating ? "Updating..." : "Assign Supervisor"}
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
