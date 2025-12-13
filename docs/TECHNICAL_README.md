@@ -1,4 +1,4 @@
-# CityGo - Complete Technical Documentation
+# CityGo - Complete Technical Documentation (webapp)
 
 > **Version**: 1.0.0  
 > **Last Updated**: December 2024  
