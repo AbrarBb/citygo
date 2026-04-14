@@ -5,6 +5,7 @@
 > **Platform**: React + Supabase (Lovable Cloud)
 
 ---
+### Video Demo: https://youtu.be/28DNBCcHyEU
 
 ## Table of Contents
 
